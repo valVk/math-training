@@ -1,0 +1,57 @@
+# HTTPS in front of the app, so the tablet can install it as an app (PWA) and the parent
+# password is not sent in plain text over Wi-Fi. Started by `docker compose up -d`.
+#
+# Caddy uses only this app's own ports, so other services on the same IP are not affected:
+#   HTTPS_PORT (default 3000)  https://<SITE_ADDRESS>:3000       the app
+#   HTTP_PORT  (default 3080)  http://<SITE_ADDRESS>:3080/root.crt  certificate download,
+#                              any other http request there is redirected to the app
+# Ports 80 and 443 are left alone. Change the ports in .env if these are taken.
+#
+# Caddy is its own small certificate authority here (`tls internal`): no public CA issues
+# certificates for a LAN IP such as 192.168.88.213. Each device trusts Caddy's root certificate
+# once, after that the address opens without warnings.
+#
+# One-time setup
+# 1. Give the Pi a fixed IP (DHCP reservation in the router) and set SITE_ADDRESS to it in .env:
+#      SITE_ADDRESS=192.168.88.213
+#    The certificate is issued for exactly this address; open the app only through it.
+# 2. docker compose up -d
+# 3. On every tablet/phone, open  http://<SITE_ADDRESS>:3080/root.crt  and install the certificate:
+#    - Android: the download opens the installer, or go to Settings > Security >
+#      Encryption & credentials > Install a certificate > CA certificate, pick root.crt.
+#    - iPad/iPhone: allow the profile download, then Settings > General > VPN & Device Management >
+#      install the profile, then Settings > General > About > Certificate Trust Settings >
+#      turn on full trust for "Caddy Local Authority".
+#    - macOS: open root.crt, add it to the System keychain, set "Always Trust".
+# 4. Open  https://<SITE_ADDRESS>:3000  and install the app from the browser menu
+#    (Chrome: "Install app" / "Add to Home screen"; Safari: Share > Add to Home Screen).
+#
+# The root certificate lives in the caddy-data volume and is valid for 10 years; the site
+# certificate signed by it renews itself. Deleting caddy-data creates a new root, and every
+# device would have to install it again.
+{
+	# Without this Caddy would also bind :80 for automatic redirects.
+	auto_https disable_redirects
+	# Clients that connect by IP send no server name; without this Caddy would not know which
+	# certificate to present (inside Docker it sees its own container IP, not the Pi's).
+	default_sni {$SITE_ADDRESS}
+	# The container cannot and should not install the root into its own trust store.
+	skip_install_trust
+}
+
+# Plain http: only hands out the root certificate for step 3, everything else goes to https.
+http://{$SITE_ADDRESS}:{$HTTP_PORT} {
+	handle /root.crt {
+		root * /data/caddy/pki/authorities/local
+		header Content-Type application/x-x509-ca-cert
+		file_server
+	}
+	handle {
+		redir https://{host}:{$HTTPS_PORT}{uri} permanent
+	}
+}
+
+https://{$SITE_ADDRESS}:{$HTTPS_PORT} {
+	tls internal
+	reverse_proxy app:3000
+}

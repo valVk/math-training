@@ -27,7 +27,7 @@ Keep the app on the home LAN or behind a VPN such as Tailscale: practice endpoin
 One multi-stage `Dockerfile` (Node 24 Alpine) with a `dev` target and a `prod` target, wired up in `docker-compose.yml`:
 
 ```bash
-docker compose up -d --build                       # production on :3000, database in the math-data volume
+docker compose up -d --build                       # production via Caddy on https://$SITE_ADDRESS:3000, database in the math-data volume
 docker compose --profile dev up --build dev        # dev server with hot reload on :3001, source bind-mounted
 ```
 
@@ -66,16 +66,23 @@ WantedBy=multi-user.target
 
 Everything lives in `data/math.sqlite`. Back up that file; the WAL mode files next to it are temporary.
 
-## Install on a tablet (PWA)
+## HTTPS and installing on a tablet (PWA)
 
-The app is installable ("Смятанка" with its own icon, full screen, no browser bar). Browsers only allow
-installing, and only run the service worker, on HTTPS or `localhost`. On plain `http://<pi>:3000`
-the site works as before, but it is not installable as an app (iPad Safari can still add a home
-screen shortcut via Share > Add to Home Screen).
+`docker compose up -d` runs Caddy in front of the app with its own local
+certificate authority, because no public CA issues certificates for a LAN IP. Browsers install a
+PWA and run its service worker only over HTTPS, and HTTPS also protects the parent password on Wi-Fi.
+Caddy uses only this app's ports, so other services on the Pi keep 80/443: HTTPS on `HTTPS_PORT`
+(default 3000) and the certificate download on `HTTP_PORT` (default 3080). The app container itself
+is not published: the session cookie is HTTPS-only.
 
-To install it, put HTTPS in front of the Pi, for example Caddy with its internal CA
-(`tls internal`, then trust Caddy's root certificate on the tablet) or Tailscale (`tailscale serve`),
-and set `NUXT_SESSION_COOKIE_SECURE=true`.
+1. Reserve a fixed IP for the Pi in the router and put it in `.env`: `SITE_ADDRESS=192.168.88.213`.
+2. `docker compose up -d --build`
+3. On each tablet/phone open `http://192.168.88.213:3080/root.crt` and install it as a trusted CA
+   (step-by-step for Android, iPad and macOS at the top of `Caddyfile`).
+4. Open `https://192.168.88.213:3000` and install the app from the browser menu.
+
+Keep the `caddy-data` volume: it holds the root certificate (valid 10 years); a new one means
+installing it on every device again.
 
 The service worker caches only the built JS/CSS/fonts/icons for a fast start; every page and `/api`
 request still goes to the server, so the app needs the Pi to be reachable. Icons are generated

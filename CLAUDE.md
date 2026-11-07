@@ -14,7 +14,7 @@ npm run lint         # ESLint (@nuxt/eslint, stylistic: no trailing commas, 1tbs
 npm run typecheck    # vue-tsc via nuxt typecheck
 npm test             # vitest, tests/*.test.ts
 npx vitest run tests/weights.test.ts   # single test file
-docker compose up -d --build                  # production container on :3000 (Dockerfile target prod)
+docker compose up -d --build                  # production: app (target prod) behind Caddy on https://$SITE_ADDRESS:3000
 docker compose --profile dev up --build dev   # dev container with hot reload on :3001 (target dev)
 ```
 
@@ -45,7 +45,7 @@ Nuxt 4 layout: `app/` (client), `server/` (Nitro API, the only place secrets exi
 
 **Skipped problems return:** an attempt has `is_return`; `nextProblemFor` first serves the oldest problem whose latest attempt is skipped/abandoned once 3 newer attempts exist (`pickReturningProblem`), so a problem keeps returning until solved.
 
-**PWA:** `@vite-pwa/nuxt` (config `pwa` in `nuxt.config.ts`, `<NuxtPwaManifest />` in `app.vue`). The service worker precaches only built static assets; pages are SSR and `/api` is never cached, so do not add runtime caching for them (stale problems or stats would be served). Icons in `public/` are generated from `public/icon.svg` by `npm run pwa-assets` (`pwa-assets.config.ts`). Installation needs HTTPS (see README).
+**PWA:** `@vite-pwa/nuxt` (config `pwa` in `nuxt.config.ts`, `<NuxtPwaManifest />` in `app.vue`). The service worker precaches only built static assets; pages are SSR and `/api` is never cached, so do not add runtime caching for them (stale problems or stats would be served). Icons in `public/` are generated from `public/icon.svg` by `npm run pwa-assets` (`pwa-assets.config.ts`). Installation needs HTTPS: in Docker, Caddy (`Caddyfile`, service `caddy`) terminates TLS with `tls internal` for `SITE_ADDRESS` and serves its root certificate at `http://<SITE_ADDRESS>:3080/root.crt`; it listens only on `HTTPS_PORT`/`HTTP_PORT` (3000/3080, same numbers inside and outside the container) because other services on the Pi use 80/443; the app is only `expose`d and runs with `NUXT_SESSION_COOKIE_SECURE=true`.
 
 ## Conventions
 

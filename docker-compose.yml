@@ -1,5 +1,7 @@
-# Production:  docker compose up -d --build
+# Production:  docker compose up -d --build   -> https://<SITE_ADDRESS>:3000 through Caddy
 # Development: docker compose --profile dev up --build dev
+#
+# HTTPS setup (once per tablet) is described at the top of the Caddyfile.
 #
 # Secrets are passed at runtime, never baked into the image. Compose reads them from the shell
 # (e.g. exported by direnv from ../.envrc) and from ./.env when it exists.
@@ -16,8 +18,11 @@ services:
       target: prod
     image: math-training:latest
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    # Reachable only through Caddy: the session cookie is HTTPS-only, so plain http on :3000 would
+    # break the parent login. To debug without Caddy, temporarily add  ports: ["3000:3000"]  and
+    # set NUXT_SESSION_COOKIE_SECURE=false.
+    expose:
+      - "3000"
     env_file:
       - path: .env
         required: false
@@ -25,8 +30,30 @@ services:
       <<: *secrets
       # The image keeps the database in the /data volume; overrides any NUXT_DB_PATH from .env.
       NUXT_DB_PATH: /data/math.sqlite
+      NUXT_SESSION_COOKIE_SECURE: "true"
     volumes:
       - math-data:/data
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    # Same port numbers inside and outside, so redirects and the certificate match what the tablet
+    # opens. Only this app's ports are used; 80/443 stay free for other services on the Pi.
+    ports:
+      - "${HTTPS_PORT:-3000}:${HTTPS_PORT:-3000}"
+      - "${HTTP_PORT:-3080}:${HTTP_PORT:-3080}"
+    environment:
+      # The Pi's fixed LAN IP (or hostname) that tablets open; set it in .env.
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+      HTTPS_PORT: ${HTTPS_PORT:-3000}
+      HTTP_PORT: ${HTTP_PORT:-3080}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Holds Caddy's root certificate: keep it, or every device must trust a new one.
+      - caddy-data:/data
+      - caddy-config:/config
 
   dev:
     profiles: [dev]
@@ -50,3 +77,5 @@ services:
 
 volumes:
   math-data:
+  caddy-data:
+  caddy-config:
