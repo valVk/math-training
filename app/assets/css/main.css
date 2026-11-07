@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: "Lora", Georgia, "Times New Roman", serif;
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  /* Terracotta: brick walls of an old workshop */
+  --color-clay-50: #fbf4ef;
+  --color-clay-100: #f4e3d6;
+  --color-clay-200: #e8c5ad;
+  --color-clay-300: #d9a07f;
+  --color-clay-400: #c97d58;
+  --color-clay-500: #b5653f;
+  --color-clay-600: #9a5133;
+  --color-clay-700: #7d412b;
+  --color-clay-800: #643627;
+  --color-clay-900: #522e23;
+  --color-clay-950: #2c1611;
+
+  /* Aged brass fittings */
+  --color-brass-50: #faf6ee;
+  --color-brass-100: #f1e8d3;
+  --color-brass-200: #e3cfa5;
+  --color-brass-300: #d2b173;
+  --color-brass-400: #c3964f;
+  --color-brass-500: #a87d3f;
+  --color-brass-600: #8f6532;
+  --color-brass-700: #744f2b;
+  --color-brass-800: #614128;
+  --color-brass-900: #533825;
+  --color-brass-950: #2f1d12;
+
+  /* Muted olive for correct answers */
+  --color-moss-50: #f4f6ee;
+  --color-moss-100: #e5ead6;
+  --color-moss-200: #ccd6b1;
+  --color-moss-300: #abbb83;
+  --color-moss-400: #8b9f5e;
+  --color-moss-500: #6e8446;
+  --color-moss-600: #566836;
+  --color-moss-700: #43512d;
+  --color-moss-800: #384228;
+  --color-moss-900: #303925;
+  --color-moss-950: #181e11;
+
+  /* Soft brick red, never alarming */
+  --color-brick-50: #fbf3f2;
+  --color-brick-100: #f6e3e0;
+  --color-brick-200: #edc8c2;
+  --color-brick-300: #e0a198;
+  --color-brick-400: #ce7366;
+  --color-brick-500: #b5544a;
+  --color-brick-600: #983f35;
+  --color-brick-700: #7f342d;
+  --color-brick-800: #6a2f2a;
+  --color-brick-900: #5a2b27;
+  --color-brick-950: #301311;
+
+  /* Warm ink and paper greys */
+  --color-ink-50: #f7f4ef;
+  --color-ink-100: #ece6dc;
+  --color-ink-200: #dbd2c4;
+  --color-ink-300: #c3b6a3;
+  --color-ink-400: #a69680;
+  --color-ink-500: #8c7b66;
+  --color-ink-600: #726352;
+  --color-ink-700: #5c5044;
+  --color-ink-800: #4a413a;
+  --color-ink-900: #3a342f;
+  --color-ink-950: #221e1b;
+}
+
+:root {
+  --paper: #f4eee3;
+  --paper-line: rgb(122 104 84 / 0.09);
+  --ui-bg: var(--paper);
+  --ui-bg-elevated: #fbf8f2;
+  --ui-bg-muted: #efe7da;
+  --ui-text: var(--color-ink-900);
+  --ui-text-muted: var(--color-ink-600);
+  --ui-border: var(--color-ink-200);
+  --ui-radius: 0.375rem;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ui-text);
+  font-family: var(--font-sans);
+}
+
+/* Squared exercise-book paper, as in a Bulgarian school notebook */
+.notebook {
+  background-color: #fdfbf6;
+  background-image:
+    linear-gradient(var(--paper-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+  background-size: 1.5rem 1.5rem;
+  background-position: -1px -1px;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

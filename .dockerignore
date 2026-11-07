@@ -1,0 +1,18 @@
+# Rebuilt inside the image
+node_modules
+.nuxt
+.output
+.data
+
+# Secrets and local data never go into an image layer
+.env
+.env.*
+!.env.example
+.envrc
+data
+
+# Not needed to build
+.git
+.playwright-mcp
+*.log
+.DS_Store

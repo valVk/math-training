@@ -1,0 +1,13 @@
+node_modules
+.nuxt
+.output
+.data
+data/*.sqlite*
+.env
+.env.*
+!.env.example
+dist
+*.log
+.DS_Store
+.envrc
+.playwright-mcp

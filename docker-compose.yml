@@ -1,0 +1,52 @@
+# Production:  docker compose up -d --build
+# Development: docker compose --profile dev up --build dev
+#
+# Secrets are passed at runtime, never baked into the image. Compose reads them from the shell
+# (e.g. exported by direnv from ../.envrc) and from ./.env when it exists.
+
+x-secrets: &secrets
+  NUXT_ANTHROPIC_API_KEY: ${NUXT_ANTHROPIC_API_KEY:-}
+  NUXT_PARENTS: ${NUXT_PARENTS:-}
+  NUXT_SESSION_PASSWORD: ${NUXT_SESSION_PASSWORD:-}
+
+services:
+  app:
+    build:
+      context: .
+      target: prod
+    image: math-training:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *secrets
+      # The image keeps the database in the /data volume; overrides any NUXT_DB_PATH from .env.
+      NUXT_DB_PATH: /data/math.sqlite
+    volumes:
+      - math-data:/data
+
+  dev:
+    profiles: [dev]
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3001:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *secrets
+      NUXT_DB_PATH: ./data/math.sqlite
+      WATCH_POLLING: "1"
+    volumes:
+      - .:/app
+      # Keep the Linux node_modules from the image instead of the host's macOS ones.
+      - /app/node_modules
+      - /app/.nuxt
+
+volumes:
+  math-data:
