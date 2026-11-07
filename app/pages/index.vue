@@ -12,11 +12,10 @@ const failed = ref(false)
 const finishedStatus = ref<AttemptStatus | null>(null)
 const showTranslation = ref(false)
 const showHint = ref(false)
+const showTeacher = ref(false)
 
-const typeTitle = computed(() => {
-  const type = problem.value ? findProblemType(problem.value.typeKey) : undefined
-  return type ? pick(type.title) : ''
-})
+const problemType = computed(() => problem.value ? findProblemType(problem.value.typeKey) : undefined)
+const typeTitle = computed(() => problemType.value ? pick(problemType.value.title) : '')
 
 async function loadNext() {
   loading.value = true
@@ -28,6 +27,7 @@ async function loadNext() {
     problem.value = next
     showTranslation.value = next.translationOpened
     showHint.value = next.hintUsed
+    showTeacher.value = false
     timer.start(next.activeMs)
   } catch {
     failed.value = true
@@ -42,6 +42,37 @@ function attemptUrl(action: string) {
   return `/api/attempts/${problem.value!.attemptId}/${action}`
 }
 
+/** A parent can skip the problem from the parent page; then the child moves on to the next one. */
+function isFinishedElsewhere(error: unknown) {
+  return (error as { statusCode?: number }).statusCode === 409
+    && (error as { statusMessage?: string }).statusMessage === 'Attempt is already finished'
+}
+
+async function attemptCall<T>(action: string, body: Record<string, unknown>): Promise<T> {
+  try {
+    return await $fetch<T>(attemptUrl(action), { method: 'POST', body }) as T
+  } catch (error) {
+    if (isFinishedElsewhere(error)) {
+      timer.stop()
+      loadNext()
+    }
+    throw error
+  }
+}
+
+async function checkFinishedElsewhere() {
+  if (!problem.value || loading.value || finishedStatus.value) {
+    return
+  }
+  const attemptId = problem.value.attemptId
+  const { status } = await $fetch<{ status: AttemptStatus }>(`/api/attempts/${attemptId}/status`)
+  if (status !== 'open' && problem.value?.attemptId === attemptId && !finishedStatus.value) {
+    timer.stop()
+    await loadNext()
+  }
+}
+usePolling(() => checkFinishedElsewhere().catch(() => {}))
+
 function onFinished(status: AttemptStatus) {
   if (status !== 'open') {
     timer.stop()
@@ -50,25 +81,25 @@ function onFinished(status: AttemptStatus) {
 }
 
 async function submitAnswer(answerIndex: number, value: string) {
-  const result = await $fetch<{ correct: boolean, invalid: boolean, canReveal: boolean, status: AttemptStatus }>(
-    attemptUrl('check'),
-    { method: 'POST', body: { answerIndex, value, activeMs: timer.read() } }
+  const result = await attemptCall<{ correct: boolean, invalid: boolean, canReveal: boolean, status: AttemptStatus }>(
+    'check',
+    { answerIndex, value, activeMs: timer.read() }
   )
   onFinished(result.status)
   return result
 }
 
 async function revealAnswer(answerIndex: number) {
-  const result = await $fetch<{ value: number, status: AttemptStatus }>(
-    attemptUrl('reveal'),
-    { method: 'POST', body: { answerIndex, activeMs: timer.read() } }
+  const result = await attemptCall<{ value: number, status: AttemptStatus }>(
+    'reveal',
+    { answerIndex, activeMs: timer.read() }
   )
   onFinished(result.status)
   return result.value
 }
 
 async function track(type: AttemptEvent) {
-  await $fetch(attemptUrl('event'), { method: 'POST', body: { type, activeMs: timer.read() } })
+  await attemptCall('event', { type, activeMs: timer.read() })
 }
 
 function toggleTranslation() {
@@ -76,6 +107,15 @@ function toggleTranslation() {
   if (showTranslation.value && !problem.value!.translationOpened) {
     problem.value!.translationOpened = true
     track('translation')
+  }
+}
+
+/** The topic's general method, never this problem's solution; it can be opened and closed again. */
+function toggleTeacher() {
+  showTeacher.value = !showTeacher.value
+  if (showTeacher.value && !problem.value!.teacherUsed) {
+    problem.value!.teacherUsed = true
+    track('teacher')
   }
 }
 
@@ -91,7 +131,13 @@ const { loggedIn } = useUserSession()
 const skipOpen = ref(false)
 
 async function skip() {
-  await $fetch(attemptUrl('skip'), { method: 'POST', body: { activeMs: timer.read() } })
+  try {
+    await $fetch(attemptUrl('skip'), { method: 'POST', body: { activeMs: timer.read() } })
+  } catch (error) {
+    if (!isFinishedElsewhere(error)) {
+      throw error
+    }
+  }
   timer.stop()
   await loadNext()
 }
@@ -185,6 +231,15 @@ onMounted(loadNext)
             :label="t('hint')"
             @click="openHint"
           />
+          <UButton
+            v-if="problemType"
+            size="lg"
+            color="success"
+            :variant="showTeacher ? 'subtle' : 'outline'"
+            icon="i-lucide-graduation-cap"
+            :label="t('teacher')"
+            @click="toggleTeacher"
+          />
         </div>
       </header>
 
@@ -215,6 +270,28 @@ onMounted(loadNext)
             {{ problem.hint.ru }}
           </p>
         </div>
+      </div>
+
+      <div
+        v-if="showTeacher && problemType"
+        class="mt-6 rounded-md border border-moss-200 bg-moss-50 px-5 py-4 text-xl leading-relaxed text-moss-950 md:text-2xl"
+      >
+        <p class="flex items-center gap-2 font-display text-moss-800">
+          <UIcon
+            name="i-lucide-graduation-cap"
+            class="size-6 shrink-0"
+          />
+          {{ t('teacherTitle') }}
+        </p>
+        <p class="mt-2 whitespace-pre-line">
+          {{ problemType.theory.bg }}
+        </p>
+        <p
+          v-if="showTranslation"
+          class="mt-3 whitespace-pre-line border-l-2 border-moss-300 pl-4 italic text-moss-800"
+        >
+          {{ problemType.theory.ru }}
+        </p>
       </div>
 
       <div class="mt-8 space-y-5">

@@ -33,6 +33,7 @@ const columns = computed<TableColumn<TypeStats>[]>(() => [
   { accessorKey: 'medianActiveMs', header: t('colMedian') },
   { accessorKey: 'avgTries', header: t('colTries') },
   { accessorKey: 'hintRate', header: t('colHint') },
+  { accessorKey: 'teacherRate', header: t('colTeacher') },
   { accessorKey: 'translationRate', header: t('colTranslation') },
   { accessorKey: 'skipped', header: t('colSkipped') }
 ])
@@ -80,7 +81,7 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
 
 <template>
   <div class="space-y-10">
-    <CurrentAttemptCard />
+    <CurrentAttemptCard @skipped="refresh" />
 
     <section>
       <div class="flex flex-wrap items-end justify-between gap-4">
@@ -139,6 +140,9 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
           </template>
           <template #hintRate-cell="{ row }">
             <span class="tabular">{{ formatPercent(row.original.hintRate) }}</span>
+          </template>
+          <template #teacherRate-cell="{ row }">
+            <span class="tabular">{{ formatPercent(row.original.teacherRate) }}</span>
           </template>
           <template #translationRate-cell="{ row }">
             <span class="tabular">{{ formatPercent(row.original.translationRate) }}</span>
@@ -262,6 +266,12 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
               color="secondary"
               variant="subtle"
               :label="t('colHint')"
+            />
+            <UBadge
+              v-if="attempt.teacherUsed"
+              color="success"
+              variant="subtle"
+              :label="t('colTeacher')"
             />
             <UBadge
               v-if="attempt.translationOpened"

@@ -22,6 +22,7 @@ const SYSTEM_PROMPT = `You help a parent understand how their child (3rd grade, 
 You receive per-topic statistics and recent attempts, including the wrong numbers the child typed.
 Look for misconceptions behind wrong answers (for example adding instead of multiplying in "N пъти повече" problems, or off-by-ten carrying errors), not only for slow topics.
 Translation usage means the child opened the Russian translation of the problem: a hint that reading, not math, was the obstacle.
+Teacher usage means the child opened the topic's general explanation of how to solve such problems: a sign the method itself is not yet clear.
 Topics with too few attempts deserve a cautious verdict. Suggest an order that puts topics needing practice first while keeping some easy ones for confidence.`
 
 export default defineEventHandler(async (event): Promise<AnalysisResult> => {
@@ -31,7 +32,7 @@ export default defineEventHandler(async (event): Promise<AnalysisResult> => {
   const since = Date.now() - body.days * 24 * 60 * 60 * 1000
   const params = { since }
 
-  const rows = db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened
+  const rows = db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened, a.teacher_used
     FROM attempts a WHERE a.served_at >= @since`).all(params) as StatsAttemptRow[]
   if (rows.length === 0) {
     throw createError({ statusCode: 409, statusMessage: 'No attempts to analyze yet' })
@@ -45,7 +46,7 @@ export default defineEventHandler(async (event): Promise<AnalysisResult> => {
     enabled: settings.find(setting => setting.key === item.typeKey)?.enabled
   }))
 
-  const recent = (db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened, p.data
+  const recent = (db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened, a.teacher_used, p.data
     FROM attempts a JOIN problems p ON p.id = a.problem_id
     WHERE a.served_at >= @since AND a.status != 'open'
     ORDER BY a.id DESC LIMIT 60`).all(params) as Array<StatsAttemptRow & { data: string }>)
@@ -64,6 +65,7 @@ export default defineEventHandler(async (event): Promise<AnalysisResult> => {
           revealed: progress[index]?.revealed ?? false
         })),
         hintUsed: row.hint_used === 1,
+        teacherUsed: row.teacher_used === 1,
         translationOpened: row.translation_opened === 1
       }
     })

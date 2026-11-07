@@ -53,6 +53,9 @@ const MIGRATIONS: string[] = [
   UPDATE type_settings SET type_key = 'mult_beyond_table' WHERE type_key = 'mult_div_beyond_table';
   UPDATE problems SET type_key = 'mult_beyond_table' WHERE type_key = 'mult_div_beyond_table';
   UPDATE attempts SET type_key = 'mult_beyond_table' WHERE type_key = 'mult_div_beyond_table';
+  `,
+  `
+  ALTER TABLE attempts ADD COLUMN teacher_used INTEGER NOT NULL DEFAULT 0;
   `
 ]
 

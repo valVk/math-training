@@ -8,6 +8,7 @@ interface CurrentRow {
   answers: string
   hint_used: number
   translation_opened: number
+  teacher_used: number
   is_return: number
   data: string
 }
@@ -16,7 +17,7 @@ interface CurrentRow {
 export default defineEventHandler(async (event): Promise<{ attempt: CurrentAttempt | null }> => {
   await requireParent(event)
   const row = useDb().prepare(`SELECT a.id, a.type_key, a.served_at, a.active_ms, a.answers, a.hint_used,
-      a.translation_opened, a.is_return, p.data
+      a.translation_opened, a.teacher_used, a.is_return, p.data
     FROM attempts a JOIN problems p ON p.id = a.problem_id
     WHERE a.user_email = ? AND a.status = 'open' AND a.served_at >= ?
     ORDER BY a.id DESC LIMIT 1`)
@@ -45,6 +46,7 @@ export default defineEventHandler(async (event): Promise<{ attempt: CurrentAttem
       })),
       hintUsed: row.hint_used === 1,
       translationOpened: row.translation_opened === 1,
+      teacherUsed: row.teacher_used === 1,
       isReturn: row.is_return === 1
     }
   }

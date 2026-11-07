@@ -59,6 +59,10 @@ const STYLE_RULES: Record<ProblemStyle, string> = {
 - The unit field is empty unless the equation uses units; the hint reminds how to find the unknown addend, minuend or subtrahend.`
 }
 
+const OPERAND_RULE = `Multiplication and division: a 3rd grader only multiplies or divides by a one-digit number or by 10. In every problem one factor of each multiplication is at most 10, every divisor is at most 10, and every division is exact. This applies to the story itself too: never share 200 sheets among 25 children or buy 12 packs of 15. The app re-checks the expression and discards violations.`
+
+const MULTI_DIGIT_RULE = `Multiplication and division: this topic is about multiplying two numbers greater than 10 or dividing by a two-digit number; every problem needs at least one such step. Every division is exact.`
+
 /** Asks Claude for a batch of problems of one type and keeps only those that pass validation. */
 export async function generateProblems(typeKey: string, recentTexts: string[]): Promise<Problem[]> {
   const type = findProblemType(typeKey)
@@ -78,6 +82,8 @@ ${type.brief}
 
 ${STYLE_RULES[type.style]}
 
+${type.multiDigit ? MULTI_DIGIT_RULE : OPERAND_RULE}
+
 Examples in the style of the class workbook (match this style and difficulty; write new problems, never copy these):
 ${type.examples.map(example => `- ${example}`).join('\n')}
 
@@ -86,7 +92,7 @@ Write ${BATCH_SIZE} problems on this topic, ranging from easy to moderately chal
 
   const valid: Problem[] = []
   for (const problem of result.problems) {
-    const defect = findProblemDefect(problem, type.style)
+    const defect = findProblemDefect(problem, type.style, { multiDigit: type.multiDigit })
     if (defect) {
       console.warn(`[generator] discarded ${typeKey} problem: ${defect}`)
     } else {

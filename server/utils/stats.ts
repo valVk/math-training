@@ -7,6 +7,7 @@ export interface StatsAttemptRow {
   answers: string
   hint_used: number
   translation_opened: number
+  teacher_used: number
 }
 
 function median(values: number[]): number | null {
@@ -44,6 +45,7 @@ export function computeTypeStats(typeKeys: string[], rows: StatsAttemptRow[]): T
       medianActiveMs: median(solved.map(row => row.active_ms)),
       avgTries: allAnswers.length ? totalTries / allAnswers.length : null,
       hintRate: rate(finished.filter(row => row.hint_used === 1).length, finished.length),
+      teacherRate: rate(finished.filter(row => row.teacher_used === 1).length, finished.length),
       translationRate: rate(finished.filter(row => row.translation_opened === 1).length, finished.length)
     }
   })

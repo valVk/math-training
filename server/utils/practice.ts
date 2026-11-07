@@ -1,6 +1,7 @@
 import type { AnswerProgress, AttemptEvent, AttemptStatus, Problem, PublicProblem, TypeSetting } from '#shared/types'
 import { pickWeightedType } from '#shared/utils/weights'
 import { parseChildAnswer } from '#shared/utils/expression'
+import { findProblemDefect } from '#shared/utils/problemValidation'
 
 /**
  * The child practices without signing in (only parents sign in), so all attempts belong to one learner.
@@ -28,6 +29,7 @@ interface AttemptRow {
   answers: string
   hint_used: number
   translation_opened: number
+  teacher_used: number
   is_return: number
 }
 
@@ -42,22 +44,31 @@ export function loadTypeSettings(): TypeSetting[] {
     .map(row => ({ key: row.type_key, position: row.position, enabled: row.enabled === 1 }))
 }
 
-function unseenCount(typeKey: string, learner: string): number {
-  const row = useDb().prepare(`
-    SELECT COUNT(*) AS count FROM problems p
-    WHERE p.type_key = ? AND p.generator_version = ? AND NOT EXISTS (
-      SELECT 1 FROM attempts a WHERE a.problem_id = p.id AND a.user_email = ?
-    )`).get(typeKey, GENERATOR_VERSION, learner) as { count: number }
-  return row.count
+/**
+ * Stored problems are re-validated before they are served, so tightening `findProblemDefect` also
+ * retires problems already in the pool without regenerating everything.
+ */
+function isServable(typeKey: string, data: string): boolean {
+  const type = findProblemType(typeKey)
+  return !!type && findProblemDefect(JSON.parse(data) as Problem, type.style, { multiDigit: type.multiDigit }) === null
 }
 
-function pickUnseenProblem(typeKey: string, learner: string): { id: number, data: string } | undefined {
-  return useDb().prepare(`
+function unseenProblems(typeKey: string, learner: string): Array<{ id: number, data: string }> {
+  const rows = useDb().prepare(`
     SELECT p.id, p.data FROM problems p
     WHERE p.type_key = ? AND p.generator_version = ? AND NOT EXISTS (
       SELECT 1 FROM attempts a WHERE a.problem_id = p.id AND a.user_email = ?
-    )
-    ORDER BY RANDOM() LIMIT 1`).get(typeKey, GENERATOR_VERSION, learner) as { id: number, data: string } | undefined
+    )`).all(typeKey, GENERATOR_VERSION, learner) as Array<{ id: number, data: string }>
+  return rows.filter(row => isServable(typeKey, row.data))
+}
+
+function unseenCount(typeKey: string, learner: string): number {
+  return unseenProblems(typeKey, learner).length
+}
+
+function pickUnseenProblem(typeKey: string, learner: string): { id: number, data: string } | undefined {
+  const rows = unseenProblems(typeKey, learner)
+  return rows[Math.floor(Math.random() * rows.length)]
 }
 
 /**
@@ -74,17 +85,18 @@ const PENDING_RETURNS_SQL = `
     AND a.id = (SELECT MAX(b.id) FROM attempts b WHERE b.problem_id = a.problem_id AND b.user_email = a.user_email)`
 
 export function countPendingReturns(learner: string): number {
-  const row = useDb().prepare(`SELECT COUNT(*) AS count ${PENDING_RETURNS_SQL}`)
-    .get({ learner, version: GENERATOR_VERSION }) as { count: number }
-  return row.count
+  const rows = useDb().prepare(`SELECT p.type_key, p.data ${PENDING_RETURNS_SQL}`)
+    .all({ learner, version: GENERATOR_VERSION }) as Array<{ type_key: string, data: string }>
+  return rows.filter(row => isServable(row.type_key, row.data)).length
 }
 
 /** The oldest skipped problem that the child has moved past by at least RETURN_AFTER problems. */
 function pickReturningProblem(learner: string): { id: number, data: string } | undefined {
-  return useDb().prepare(`SELECT p.id, p.data ${PENDING_RETURNS_SQL}
+  const rows = useDb().prepare(`SELECT p.id, p.type_key, p.data ${PENDING_RETURNS_SQL}
       AND (SELECT COUNT(*) FROM attempts c WHERE c.user_email = a.user_email AND c.id > a.id) >= @gap
-    ORDER BY a.id LIMIT 1`)
-    .get({ learner, version: GENERATOR_VERSION, gap: RETURN_AFTER }) as { id: number, data: string } | undefined
+    ORDER BY a.id`)
+    .all({ learner, version: GENERATOR_VERSION, gap: RETURN_AFTER }) as Array<{ id: number, type_key: string, data: string }>
+  return rows.find(row => isServable(row.type_key, row.data))
 }
 
 /** Generates and stores a batch for a type; concurrent calls for the same type share one request. */
@@ -126,6 +138,7 @@ function toPublic(row: AttemptRow, problem: Problem): PublicProblem {
     solved: progress.map(item => item.solvedAtMs !== null || item.revealed),
     hintUsed: row.hint_used === 1,
     translationOpened: row.translation_opened === 1,
+    teacherUsed: row.teacher_used === 1,
     activeMs: row.active_ms,
     returning: row.is_return === 1
   }
@@ -211,6 +224,14 @@ function loadOpenAttempt(attemptId: number, learner: string): AttemptRow {
   return row
 }
 
+export function attemptStatus(attemptId: number, learner: string): AttemptStatus {
+  const row = useDb().prepare('SELECT status FROM attempts WHERE id = ? AND user_email = ?').get(attemptId, learner) as { status: AttemptStatus } | undefined
+  if (!row) {
+    throw createError({ statusCode: 404, statusMessage: 'Attempt not found' })
+  }
+  return row.status
+}
+
 function saveProgress(row: AttemptRow, progress: AnswerProgress[], activeMs: number) {
   const done = progress.every(item => item.solvedAtMs !== null || item.revealed)
   const status: AttemptStatus = done ? (progress.some(item => item.revealed) ? 'revealed' : 'solved') : 'open'
@@ -266,7 +287,7 @@ export function revealAnswer(attemptId: number, learner: string, answerIndex: nu
 
 export function recordEvent(attemptId: number, learner: string, type: AttemptEvent, activeMs: number) {
   const row = loadOpenAttempt(attemptId, learner)
-  const column = type === 'hint' ? 'hint_used' : 'translation_opened'
+  const column = { hint: 'hint_used', translation: 'translation_opened', teacher: 'teacher_used' }[type]
   useDb().prepare(`UPDATE attempts SET ${column} = 1, active_ms = ? WHERE id = ?`)
     .run(Math.max(row.active_ms, activeMs), row.id)
 }

@@ -13,13 +13,13 @@ export default defineEventHandler(async (event): Promise<StatsResponse> => {
   const since = Date.now() - query.days * 24 * 60 * 60 * 1000
 
   const params = { since }
-  const rows = db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened
+  const rows = db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened, a.teacher_used
     FROM attempts a WHERE a.served_at >= @since`).all(params) as StatsAttemptRow[]
 
   const order = loadTypeSettings().map(setting => setting.key)
 
   const recentRows = db.prepare(`SELECT a.id, a.type_key, a.served_at, a.status, a.active_ms, a.answers,
-      a.hint_used, a.translation_opened, a.is_return, p.data
+      a.hint_used, a.translation_opened, a.teacher_used, a.is_return, p.data
     FROM attempts a JOIN problems p ON p.id = a.problem_id
     WHERE a.served_at >= @since AND a.status != 'open'
     ORDER BY a.id DESC LIMIT 40`).all(params) as Array<StatsAttemptRow & { id: number, served_at: number, is_return: number, data: string }>
@@ -43,6 +43,7 @@ export default defineEventHandler(async (event): Promise<StatsResponse> => {
       })),
       hintUsed: row.hint_used === 1,
       translationOpened: row.translation_opened === 1,
+      teacherUsed: row.teacher_used === 1,
       isReturn: row.is_return === 1
     }
   })

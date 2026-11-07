@@ -59,6 +59,23 @@ describe('findProblemDefect', () => {
     expect(findProblemDefect(bare)).toBeNull()
   })
 
+  it('keeps multiplication and division within one-digit numbers and 10', () => {
+    expect(findProblemDefect(problem([{ expression: '23 * 4', value: 92 }]))).toBeNull()
+    expect(findProblemDefect(problem([{ expression: '10 * 10', value: 100 }]))).toBeNull()
+    expect(findProblemDefect(problem([{ expression: '96 : 4', value: 24 }]))).toBeNull()
+    expect(findProblemDefect(problem([{ expression: '5 * 40 / 25', value: 8 }]))).toMatch(/divides by 25/)
+    expect(findProblemDefect(problem([{ expression: '12 * 15', value: 180 }]))).toMatch(/multiplies 12 . 15/)
+  })
+
+  it('allows two-digit operands only for topics about them', () => {
+    expect(findProblemDefect(problem([{ expression: '5 * 40 / 25', value: 8 }]), 'story', { multiDigit: true })).toBeNull()
+    expect(findProblemDefect(problem([{ expression: '12 * 15', value: 180 }]), 'story', { multiDigit: true })).toBeNull()
+  })
+
+  it('rejects inexact division even when the total is whole', () => {
+    expect(findProblemDefect(problem([{ expression: '7 / 2 * 2', value: 7 }]))).toMatch(/not exact/)
+  })
+
   it('requires 1 to 3 answers', () => {
     expect(findProblemDefect(problem([]))).toMatch(/1-3 answers/)
   })

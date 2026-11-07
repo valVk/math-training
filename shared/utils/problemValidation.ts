@@ -9,6 +9,34 @@ const MIN_WORDS: Record<ProblemStyle, number> = { story: 12, riddle: 8, equation
 const SELF_CORRECTION = /\.\.\.|…|всъщност/i
 /** A class name with a bare letter ("3 а клас") reads like a quantity; it must be written 3 „А“ клас. */
 const BARE_CLASS_LETTER = /\d\s*[а-я]\s+клас/i
+/** 3rd grade multiplies and divides by a one-digit number or by 10. */
+const MAX_SMALL_OPERAND = 10
+
+export interface DefectOptions {
+  /** The topic is about multiplying and dividing by numbers greater than 10. */
+  multiDigit?: boolean
+}
+
+/**
+ * Checks every multiplication and division in an answer's expression: division must be exact and,
+ * unless the topic allows bigger operands, one factor and the divisor must be at most 10.
+ */
+function findOperationDefect(expression: string, options: DefectOptions): string | null {
+  let defect: string | null = null
+  evaluateExpression(expression, (op, left, right) => {
+    if (defect) {
+      return
+    }
+    if (op === '/' && !Number.isInteger(left / right)) {
+      defect = `${left} : ${right} is not exact`
+    } else if (!options.multiDigit && op === '/' && right > MAX_SMALL_OPERAND) {
+      defect = `divides by ${right}, more than 3rd grade covers`
+    } else if (!options.multiDigit && op === '*' && Math.min(left, right) > MAX_SMALL_OPERAND) {
+      defect = `multiplies ${left} . ${right}, more than 3rd grade covers`
+    }
+  })
+  return defect
+}
 
 /**
  * Checks an equation question such as "x + 37 = 468" or "400 км + x км = 480 км": substitutes the
@@ -41,10 +69,11 @@ export function findEquationDefect(equation: string, value: number): string | nu
 
 /**
  * Re-computes every answer from its expression and rejects problems where the generator's
- * stated value disagrees, or where the result is not a non-negative whole number. Equations are
- * additionally checked by substituting the answer. Returns a reason string, or null when fine.
+ * stated value disagrees, or where the result is not a non-negative whole number. Multiplication and
+ * division are limited to what the topic covers. Equations are additionally checked by substituting
+ * the answer. Returns a reason string, or null when fine.
  */
-export function findProblemDefect(problem: Problem, style: ProblemStyle = 'story'): string | null {
+export function findProblemDefect(problem: Problem, style: ProblemStyle = 'story', options: DefectOptions = {}): string | null {
   if (problem.answers.length < 1 || problem.answers.length > 3) {
     return `expected 1-3 answers, got ${problem.answers.length}`
   }
@@ -74,6 +103,10 @@ export function findProblemDefect(problem: Problem, style: ProblemStyle = 'story
     }
     if (!Number.isInteger(computed) || computed < 0 || computed > MAX_ANSWER) {
       return `answer ${index + 1}: ${computed} is not a whole number in range`
+    }
+    const operationDefect = findOperationDefect(answer.expression, options)
+    if (operationDefect) {
+      return `answer ${index + 1}: ${operationDefect}`
     }
     if (style === 'equation') {
       const defect = findEquationDefect(answer.question.bg, answer.value)

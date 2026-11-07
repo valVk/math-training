@@ -8,6 +8,7 @@ function row(partial: Partial<StatsAttemptRow> & { answers: object[] }): StatsAt
     active_ms: 10000,
     hint_used: 0,
     translation_opened: 0,
+    teacher_used: 0,
     ...partial,
     answers: JSON.stringify(partial.answers)
   }

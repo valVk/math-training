@@ -1,10 +1,36 @@
 <script setup lang="ts">
 import type { CurrentAttempt } from '#shared/types'
 
+const emit = defineEmits<{ skipped: [] }>()
+
 const { t, pick } = useLocale(PARENT_LOCALE)
+const toast = useToast()
 const { data, refresh } = await useFetch<{ attempt: CurrentAttempt | null }>('/api/admin/current')
 const attempt = computed(() => data.value?.attempt ?? null)
 usePolling(refresh)
+
+/** Skipping asks for a second click, so a stray tap does not take the problem away from the child. */
+const confirmingSkip = ref(false)
+const skipping = ref(false)
+watch(() => attempt.value?.id, () => (confirmingSkip.value = false))
+
+async function skip() {
+  if (!attempt.value) {
+    return
+  }
+  skipping.value = true
+  try {
+    await $fetch(`/api/attempts/${attempt.value.id}/skip`, { method: 'POST', body: { activeMs: attempt.value.activeMs } })
+    toast.add({ title: t('currentSkipped'), color: 'success' })
+    emit('skipped')
+  } catch (error) {
+    toast.add({ title: (error as { statusMessage?: string }).statusMessage ?? String(error), color: 'error' })
+  } finally {
+    skipping.value = false
+    confirmingSkip.value = false
+    await refresh()
+  }
+}
 
 const units = computed(() => ({ seconds: t('seconds'), minutes: t('minutes') }))
 const typeTitle = (key: string) => {
@@ -15,13 +41,43 @@ const typeTitle = (key: string) => {
 
 <template>
   <section class="rounded-lg border border-ink-200 bg-ink-50/60 p-6">
-    <h2 class="flex items-center gap-2 font-display text-2xl">
-      <span
-        class="size-2.5 rounded-full"
-        :class="attempt ? 'animate-pulse bg-moss-500' : 'bg-ink-300'"
-      />
-      {{ t('currentTitle') }}
-    </h2>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="flex items-center gap-2 font-display text-2xl">
+        <span
+          class="size-2.5 rounded-full"
+          :class="attempt ? 'animate-pulse bg-moss-500' : 'bg-ink-300'"
+        />
+        {{ t('currentTitle') }}
+      </h2>
+      <div
+        v-if="attempt"
+        class="flex flex-wrap items-center gap-2"
+      >
+        <template v-if="confirmingSkip">
+          <span class="text-sm text-ink-700">{{ t('currentSkipConfirm') }}</span>
+          <UButton
+            color="error"
+            :loading="skipping"
+            :label="t('currentSkipYes')"
+            @click="skip"
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            :label="t('reset')"
+            @click="confirmingSkip = false"
+          />
+        </template>
+        <UButton
+          v-else
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-skip-forward"
+          :label="t('currentSkip')"
+          @click="confirmingSkip = true"
+        />
+      </div>
+    </div>
 
     <p
       v-if="!attempt"
@@ -51,6 +107,12 @@ const typeTitle = (key: string) => {
           color="secondary"
           variant="subtle"
           :label="t('colHint')"
+        />
+        <UBadge
+          v-if="attempt.teacherUsed"
+          color="success"
+          variant="subtle"
+          :label="t('colTeacher')"
         />
         <UBadge
           v-if="attempt.translationOpened"

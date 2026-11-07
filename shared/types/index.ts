@@ -31,6 +31,7 @@ export interface PublicProblem {
   solved: boolean[]
   hintUsed: boolean
   translationOpened: boolean
+  teacherUsed: boolean
   activeMs: number
   /** The child skipped this problem earlier and it has come back. */
   returning: boolean
@@ -46,7 +47,8 @@ export interface AnswerProgress {
   revealed: boolean
 }
 
-export type AttemptEvent = 'hint' | 'translation'
+/** hint: the problem's own hint; teacher: the topic's theory; translation: the Russian text. */
+export type AttemptEvent = 'hint' | 'translation' | 'teacher'
 
 export interface TypeSetting {
   key: string
@@ -64,6 +66,7 @@ export interface TypeStats {
   medianActiveMs: number | null
   avgTries: number | null
   hintRate: number | null
+  teacherRate: number | null
   translationRate: number | null
 }
 
@@ -77,6 +80,7 @@ export interface RecentAttempt {
   answers: Array<{ question: string, value: number, tries: number, wrongValues: number[], revealed: boolean }>
   hintUsed: boolean
   translationOpened: boolean
+  teacherUsed: boolean
   isReturn: boolean
 }
 
@@ -113,5 +117,6 @@ export interface CurrentAttempt {
   }>
   hintUsed: boolean
   translationOpened: boolean
+  teacherUsed: boolean
   isReturn: boolean
 }

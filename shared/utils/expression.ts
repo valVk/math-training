@@ -1,9 +1,13 @@
 /**
  * Safe evaluator for the arithmetic expressions the generator returns as proof of each answer.
  * Supports numbers, + - * / and the school notations x, ×, ·, :, plus parentheses.
- * Throws on anything else.
+ * Throws on anything else. `onOperation` sees every multiplication and division with its operands,
+ * so callers can check what a 3rd grader is expected to compute.
  */
-export function evaluateExpression(source: string): number {
+export function evaluateExpression(
+  source: string,
+  onOperation?: (op: '*' | '/', left: number, right: number) => void
+): number {
   const tokens = tokenize(source)
   let index = 0
 
@@ -28,6 +32,7 @@ export function evaluateExpression(source: string): number {
       if (op === '/' && right === 0) {
         throw new Error('Division by zero')
       }
+      onOperation?.(op as '*' | '/', value, right)
       value = op === '*' ? value * right : value / right
     }
     return value
