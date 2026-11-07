@@ -5,6 +5,8 @@ import type { ProblemStyle } from './problemTypes'
 const MAX_ANSWER = 100000
 /** Below this many words the text is a bare computation, not something to read and understand. */
 const MIN_WORDS: Record<ProblemStyle, number> = { story: 12, riddle: 8, equation: 0 }
+/** Signs that the generator corrected itself mid-text ("изкопал половината... всъщност"), leaving an ambiguous story. */
+const SELF_CORRECTION = /\.\.\.|…|всъщност/i
 
 /**
  * Checks an equation question such as "x + 37 = 468" or "400 км + x км = 480 км": substitutes the
@@ -50,6 +52,10 @@ export function findProblemDefect(problem: Problem, style: ProblemStyle = 'story
   const words = problem.text.bg.trim().split(/\s+/).length
   if (words < MIN_WORDS[style]) {
     return `text has ${words} words, a ${style} needs at least ${MIN_WORDS[style]}`
+  }
+  const wording = [problem.text.bg, ...problem.answers.map(answer => answer.question.bg)]
+  if (wording.some(part => SELF_CORRECTION.test(part))) {
+    return 'text corrects itself ("..." or "всъщност")'
   }
   for (const [index, answer] of problem.answers.entries()) {
     let computed: number

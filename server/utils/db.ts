@@ -41,6 +41,18 @@ const MIGRATIONS: string[] = [
   `,
   `
   ALTER TABLE attempts ADD COLUMN is_return INTEGER NOT NULL DEFAULT 0;
+  `,
+  // Split "mult_div_beyond_table" into multiplication and division. Multiplication keeps the old
+  // position and history; division goes right after it with the same enabled flag. A fresh
+  // database has no rows here.
+  `
+  UPDATE type_settings SET position = position + 1
+    WHERE position > (SELECT position FROM type_settings WHERE type_key = 'mult_div_beyond_table');
+  INSERT INTO type_settings (type_key, position, enabled)
+    SELECT 'div_beyond_table', position + 1, enabled FROM type_settings WHERE type_key = 'mult_div_beyond_table';
+  UPDATE type_settings SET type_key = 'mult_beyond_table' WHERE type_key = 'mult_div_beyond_table';
+  UPDATE problems SET type_key = 'mult_beyond_table' WHERE type_key = 'mult_div_beyond_table';
+  UPDATE attempts SET type_key = 'mult_beyond_table' WHERE type_key = 'mult_div_beyond_table';
   `
 ]
 

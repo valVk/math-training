@@ -9,7 +9,7 @@ const BATCH_SIZE = 8
  * Bump when the prompt changes what a problem looks like. Only problems of the current version are
  * served, so a stale pool is regenerated instead of shown.
  */
-export const GENERATOR_VERSION = 3
+export const GENERATOR_VERSION = 4
 
 const localized = z.object({
   bg: z.string().describe('Bulgarian'),
@@ -39,7 +39,10 @@ Use everyday Bulgarian contexts and names (Иван, Мария, Ники, Ел�
 
 Each problem has 1 to 3 answers. When a problem has several answers, each one is its own question, asked in order, and later ones may build on earlier ones.
 Every answer is a non-negative whole number. Its "expression" must compute it exactly from the numbers in the problem; the app re-computes it and discards the problem on any mismatch.
-Vary numbers, contexts and wording; never repeat the examples you are shown.`
+Vary numbers, contexts and wording; never repeat the examples you are shown.
+
+Every text is final, printed-workbook copy. Never think aloud or correct yourself inside a text: no "всъщност", no "...", no changed plans, no events that are taken back.
+A problem must have exactly one reading. Do not mention an action that changes a quantity (ate, sold, dug up, gave away half) unless the questions take it into account; an extra unneeded number must clearly be about something the questions do not ask. Before you output a problem, re-read it as the child would: using only the text, they must reach exactly the stated answers.`
 
 const STYLE_RULES: Record<ProblemStyle, string> = {
   story: `Style: story. Every problem is a short story of 2-5 sentences that the child must read and understand to work out what to calculate.

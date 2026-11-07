@@ -143,12 +143,22 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     ]
   },
   {
-    key: 'mult_div_beyond_table',
-    title: { bg: 'Извънтаблично умножение и деление', ru: 'Внетабличное умножение и деление' },
+    key: 'mult_beyond_table',
+    title: { bg: 'Извънтаблично умножение', ru: 'Внетабличное умножение' },
     style: 'story',
-    brief: 'Story whose solution multiplies a 2- or 3-digit number by a 1-digit number, or divides a 2- or 3-digit number by a 1-digit number without remainder. Results within 1000.',
+    brief: 'Story whose solution multiplies a 2- or 3-digit number by a 1-digit number (equal groups), possibly followed by an addition or subtraction. No division anywhere: no sharing, halves, "пъти по-малко" or questions answered by dividing. Results within 1000.',
     examples: [
-      'В една кутия има 124 кламера. Секретарката купила 3 такива кутии за училищната канцелария. Въпрос: Колко кламера купила?'
+      'В една кутия има 124 кламера. Секретарката купила 3 такива кутии за училищната канцелария. Въпрос: Колко кламера купила?',
+      'Училищният автобус прави по 4 курса на ден. При всеки курс вози по 36 деца. Въпрос: Колко деца превозва автобусът за един ден?'
+    ]
+  },
+  {
+    key: 'div_beyond_table',
+    title: { bg: 'Извънтаблично деление', ru: 'Внетабличное деление' },
+    style: 'story',
+    brief: 'Story whose solution divides a 2- or 3-digit number by a 1-digit number without remainder (sharing equally or grouping). The text never says "divide".',
+    examples: [
+      'В пекарната изпекли 96 кифли и ги подредили по равно в 4 тави. Въпрос: По колко кифли има във всяка тава?'
     ]
   },
   {

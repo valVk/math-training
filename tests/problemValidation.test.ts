@@ -39,6 +39,15 @@ describe('findProblemDefect', () => {
     expect(findProblemDefect(bare)).toMatch(/story needs/)
   })
 
+  it('rejects a text that corrects itself', () => {
+    const muddled = problem([{ expression: '8 * 56', value: 448 }])
+    muddled.text = {
+      bg: 'В градината на дядо Стоян има 8 реда със зеле. На всеки ред има по 56 растения. Дядо Стоян изкопал половината... всъщност първо преброил всички растения.',
+      ru: 'В огороде у дедушки Стояна 8 грядок капусты. На каждой грядке по 56 растений.'
+    }
+    expect(findProblemDefect(muddled)).toMatch(/corrects itself/)
+  })
+
   it('requires 1 to 3 answers', () => {
     expect(findProblemDefect(problem([]))).toMatch(/1-3 answers/)
   })
