@@ -1,6 +1,11 @@
 /** No input for this long counts as a break and stops the clock. */
 const IDLE_AFTER_MS = 60_000
 const TICK_MS = 500
+/**
+ * A longer gap between ticks means timers were suspended (tablet asleep, browser throttled), not
+ * that the child was working; only this much of it is counted.
+ */
+const MAX_TICK_GAP_MS = 2 * TICK_MS
 
 /**
  * Counts only time the child is plausibly working: the tab is visible and there was
@@ -20,7 +25,7 @@ export function useActiveTimer() {
     const now = Date.now()
     const visible = document.visibilityState === 'visible'
     if (visible && now - lastActivity < IDLE_AFTER_MS) {
-      activeMs.value += now - lastTick
+      activeMs.value += Math.min(now - lastTick, MAX_TICK_GAP_MS)
     }
     lastTick = now
   }

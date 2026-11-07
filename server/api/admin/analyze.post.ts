@@ -3,7 +3,7 @@ import type { AnalysisResult, AnswerProgress, Problem } from '#shared/types'
 import type { StatsAttemptRow } from '../../utils/stats'
 
 const bodySchema = z.object({
-  days: z.number().int().min(1).max(3650).default(30),
+  ...periodFields,
   locale: z.enum(['bg', 'ru']).default('bg')
 })
 
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event): Promise<AnalysisResult> => {
   await requireParent(event)
   const body = await readValidatedBody(event, bodySchema.parse)
   const db = useDb()
-  const since = Date.now() - body.days * 24 * 60 * 60 * 1000
+  const since = periodStart(body)
   const params = { since }
 
   const rows = db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened, a.teacher_used

@@ -1,4 +1,5 @@
 import type { AnswerProgress, AttemptStatus, TypeStats } from '../../shared/types'
+import { TOTAL_KEY } from '../../shared/utils/statsKeys'
 
 export interface StatsAttemptRow {
   type_key: string
@@ -49,4 +50,9 @@ export function computeTypeStats(typeKeys: string[], rows: StatsAttemptRow[]): T
       translationRate: rate(finished.filter(row => row.translation_opened === 1).length, finished.length)
     }
   })
+}
+
+/** The same aggregates over all topics together. */
+export function computeTotalStats(rows: StatsAttemptRow[]): TypeStats {
+  return computeTypeStats([TOTAL_KEY], rows.map(row => ({ ...row, type_key: TOTAL_KEY })))[0]!
 }

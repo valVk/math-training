@@ -2,15 +2,13 @@ import { z } from 'zod'
 import type { AnswerProgress, Problem, RecentAttempt, StatsResponse } from '#shared/types'
 import type { StatsAttemptRow } from '../../utils/stats'
 
-const querySchema = z.object({
-  days: z.coerce.number().int().min(1).max(3650).default(30)
-})
+const querySchema = z.object(periodFields)
 
 export default defineEventHandler(async (event): Promise<StatsResponse> => {
   await requireParent(event)
   const query = await getValidatedQuery(event, querySchema.parse)
   const db = useDb()
-  const since = Date.now() - query.days * 24 * 60 * 60 * 1000
+  const since = periodStart(query)
 
   const params = { since }
   const rows = db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened, a.teacher_used
@@ -48,5 +46,10 @@ export default defineEventHandler(async (event): Promise<StatsResponse> => {
     }
   })
 
-  return { pendingReturns: countPendingReturns(LEARNER), types: computeTypeStats(order, rows), recent }
+  return {
+    pendingReturns: countPendingReturns(LEARNER),
+    types: computeTypeStats(order, rows),
+    total: computeTotalStats(rows),
+    recent
+  }
 })

@@ -5,26 +5,47 @@ import type { AnalysisResult, AttemptStatus, StatsResponse, TypeSetting, TypeSta
 const { t, pick, locale } = useLocale(PARENT_LOCALE)
 const toast = useToast()
 
+/** Number of days, or 0 for today (from local midnight). */
 const days = ref(30)
 
-const query = computed(() => ({ days: days.value }))
+const query = computed(() => {
+  if (days.value === 0) {
+    const midnight = new Date()
+    midnight.setHours(0, 0, 0, 0)
+    return { since: midnight.getTime() }
+  }
+  return { days: days.value }
+})
 const { data: stats, status, refresh } = await useFetch<StatsResponse>('/api/admin/stats', { query })
 usePolling(refresh)
 
 const units = computed(() => ({ seconds: t('seconds'), minutes: t('minutes') }))
 const typeTitle = (key: string) => {
+  if (key === TOTAL_KEY) {
+    return t('total')
+  }
   const type = findProblemType(key)
   return type ? pick(type.title) : key
 }
 
 const periodItems = computed(() => [
+  { label: t('today'), value: 0 },
   { label: t('days7'), value: 7 },
   { label: t('days30'), value: 30 },
   { label: t('days90'), value: 90 },
   { label: t('days365'), value: 365 }
 ])
 
-const rows = computed(() => (stats.value?.types ?? []).filter(row => row.attempts > 0))
+const rows = computed(() => {
+  const types = (stats.value?.types ?? []).filter(row => row.attempts > 0)
+  return types.length && stats.value ? [...types, stats.value.total] : types
+})
+
+const tableMeta = {
+  class: {
+    tr: (row: { original: TypeStats }) => row.original.typeKey === TOTAL_KEY ? 'bg-ink-100/70 font-semibold' : ''
+  }
+}
 
 const columns = computed<TableColumn<TypeStats>[]>(() => [
   { accessorKey: 'typeKey', header: t('colType') },
@@ -117,9 +138,10 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
           :columns="columns"
           :loading="status === 'pending' && !stats"
           :empty="t('noData')"
+          :meta="tableMeta"
         >
           <template #typeKey-cell="{ row }">
-            <span class="font-medium">{{ typeTitle(row.original.typeKey) }}</span>
+            <span :class="row.original.typeKey === TOTAL_KEY ? 'font-semibold text-ink-900' : 'font-medium'">{{ typeTitle(row.original.typeKey) }}</span>
           </template>
           <template #firstTryRate-cell="{ row }">
             <div class="flex items-center gap-2">

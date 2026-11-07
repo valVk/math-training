@@ -45,6 +45,8 @@ Nuxt 4 layout: `app/` (client), `server/` (Nitro API, the only place secrets exi
 
 **Skipped problems return:** an attempt has `is_return`; `nextProblemFor` first serves the oldest problem whose latest attempt is skipped/abandoned once 3 newer attempts exist (`pickReturningProblem`), so a problem keeps returning until solved.
 
+**PWA:** `@vite-pwa/nuxt` (config `pwa` in `nuxt.config.ts`, `<NuxtPwaManifest />` in `app.vue`). The service worker precaches only built static assets; pages are SSR and `/api` is never cached, so do not add runtime caching for them (stale problems or stats would be served). Icons in `public/` are generated from `public/icon.svg` by `npm run pwa-assets` (`pwa-assets.config.ts`). Installation needs HTTPS (see README).
+
 ## Conventions
 
 - Problem content is always shown in Bulgarian; Russian is an opt-in translation per problem, and opening it is a tracked metric. UI language is fixed by audience, not user-selectable: child-facing UI uses `useLocale(CHILD_LOCALE)` (Bulgarian), everything parents see (stats, topics, login, the skip dialog, parent header items) uses `useLocale(PARENT_LOCALE)` (Russian). Strings live in both dictionaries in `app/composables/useLocale.ts`.

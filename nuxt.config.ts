@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui', '@nuxt/eslint', 'nuxt-auth-utils'],
+  modules: ['@nuxt/ui', '@nuxt/eslint', 'nuxt-auth-utils', '@vite-pwa/nuxt'],
 
   devtools: { enabled: true },
 
@@ -7,7 +7,16 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'bg' },
       title: 'Смятанка',
-      meta: [{ name: 'description', content: 'Математика за 3. клас' }]
+      meta: [
+        { name: 'description', content: 'Математика за 3. клас' },
+        { name: 'theme-color', content: '#3a342f' }
+      ],
+      // Icons are generated from public/icon.svg by `npm run pwa-assets`.
+      link: [
+        { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+        { rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon-180x180.png' }
+      ]
     }
   },
 
@@ -64,5 +73,33 @@ export default defineNuxtConfig({
     defaults: {
       subsets: ['latin', 'cyrillic']
     }
+  },
+
+  // Installable app for the child's tablet. The app needs the server for every problem, so the
+  // service worker only caches the built assets (faster start); pages and /api always go to the network.
+  pwa: {
+    registerType: 'autoUpdate',
+    manifest: {
+      name: 'Смятанка',
+      short_name: 'Смятанка',
+      description: 'Математика за 3. клас',
+      lang: 'bg',
+      start_url: '/',
+      display: 'standalone',
+      theme_color: '#3a342f',
+      background_color: '#f4eee3',
+      icons: [
+        { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+        { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+        { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+        { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+      ]
+    },
+    workbox: {
+      // Pages are server-rendered per request, so there is no HTML to fall back to offline.
+      navigateFallback: undefined,
+      globPatterns: ['**/*.{js,css,png,svg,ico,woff2}']
+    },
+    client: { installPrompt: false }
   }
 })

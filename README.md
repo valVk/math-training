@@ -66,6 +66,21 @@ WantedBy=multi-user.target
 
 Everything lives in `data/math.sqlite`. Back up that file; the WAL mode files next to it are temporary.
 
+## Install on a tablet (PWA)
+
+The app is installable ("Смятанка" with its own icon, full screen, no browser bar). Browsers only allow
+installing, and only run the service worker, on HTTPS or `localhost`. On plain `http://<pi>:3000`
+the site works as before, but it is not installable as an app (iPad Safari can still add a home
+screen shortcut via Share > Add to Home Screen).
+
+To install it, put HTTPS in front of the Pi, for example Caddy with its internal CA
+(`tls internal`, then trust Caddy's root certificate on the tablet) or Tailscale (`tailscale serve`),
+and set `NUXT_SESSION_COOKIE_SECURE=true`.
+
+The service worker caches only the built JS/CSS/fonts/icons for a fast start; every page and `/api`
+request still goes to the server, so the app needs the Pi to be reachable. Icons are generated
+from `public/icon.svg` with `npm run pwa-assets`.
+
 ## How it works
 
 - **Problems** follow the style of the class workbook: mostly word problems, plus number riddles and "Намери неизвестното число" equations (a ± b = c). They are generated in batches of 8 per topic and stored in the database. Each answer comes with an arithmetic expression, and the server recomputes it. A problem whose stated answer doesn't match is discarded, so Claude's arithmetic mistakes never reach the child. A topic's pool is refilled in the background when a child has 3 or fewer unseen problems left in it.

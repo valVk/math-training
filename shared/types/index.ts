@@ -88,6 +88,8 @@ export interface StatsResponse {
   /** Skipped problems not solved yet; they will come back to the child. */
   pendingReturns: number
   types: TypeStats[]
+  /** All topics together, for the summary row. */
+  total: TypeStats
   recent: RecentAttempt[]
 }
 

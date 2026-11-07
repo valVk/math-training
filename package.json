@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "nuxt typecheck",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pwa-assets": "pwa-assets-generator"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
@@ -26,6 +27,8 @@
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
     "@types/better-sqlite3": "^9.6.0",
+    "@vite-pwa/assets-generator": "^1.0.4",
+    "@vite-pwa/nuxt": "^1.1.1",
     "eslint": "^10.14.0",
     "typescript": "~5.9.3",
     "vitest": "^5.1.0",

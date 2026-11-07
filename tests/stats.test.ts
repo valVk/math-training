@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeTypeStats, type StatsAttemptRow } from '../server/utils/stats'
+import { computeTotalStats, computeTypeStats, type StatsAttemptRow } from '../server/utils/stats'
 
 function row(partial: Partial<StatsAttemptRow> & { answers: object[] }): StatsAttemptRow {
   return {
@@ -39,5 +39,14 @@ describe('computeTypeStats', () => {
   it('returns nulls for types without attempts', () => {
     const [stats] = computeTypeStats(['empty'], [])
     expect(stats).toMatchObject({ attempts: 0, firstTryRate: null, medianActiveMs: null })
+  })
+
+  it('totals all topics together', () => {
+    const total = computeTotalStats([
+      row({ type_key: 'a', answers: [solvedFirstTry], active_ms: 10000 }),
+      row({ type_key: 'b', answers: [solvedSecondTry], active_ms: 30000 }),
+      row({ type_key: 'b', answers: [solvedFirstTry], status: 'skipped' })
+    ])
+    expect(total).toMatchObject({ typeKey: 'total', attempts: 3, solved: 2, skipped: 1, medianActiveMs: 20000 })
   })
 })
