@@ -68,7 +68,7 @@ Everything lives in `data/math.sqlite`. Back up that file; the WAL mode files ne
 
 ## How it works
 
-- **Problems** are generated in batches of 8 per topic and stored in the database. Each answer comes with an arithmetic expression, and the server recomputes it. A problem whose stated answer doesn't match is discarded, so Claude's arithmetic mistakes never reach the child. A topic's pool is refilled in the background when a child has 3 or fewer unseen problems left in it.
+- **Problems** follow the style of the class workbook: mostly word problems, plus number riddles and "Намери неизвестното число" equations (a ± b = c). They are generated in batches of 8 per topic and stored in the database. Each answer comes with an arithmetic expression, and the server recomputes it. A problem whose stated answer doesn't match is discarded, so Claude's arithmetic mistakes never reach the child. A topic's pool is refilled in the background when a child has 3 or fewer unseen problems left in it.
 - **Topic priority:** among N enabled topics, the one at the top is picked N times as often as the one at the bottom (linear weights). The parent changes the order on the topic page, or applies the order suggested by the AI analysis.
 - **Metrics per attempt:**
   - Active solving time. It counts only while the tab is visible and the child has used the mouse or keyboard within the last minute.

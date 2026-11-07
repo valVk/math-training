@@ -97,7 +97,11 @@ export function refillPool(typeKey: string): Promise<void> {
     const db = useDb()
     const recent = (db.prepare('SELECT data FROM problems WHERE type_key = ? AND generator_version = ? ORDER BY id DESC LIMIT 15')
       .all(typeKey, GENERATOR_VERSION) as Array<{ data: string }>)
-      .map(row => (JSON.parse(row.data) as Problem).text.bg)
+      .map((row) => {
+        // Include the questions: for equations the text is always the same instruction.
+        const problem = JSON.parse(row.data) as Problem
+        return [problem.text.bg, ...problem.answers.map(answer => answer.question.bg)].join(' | ')
+      })
     const problems = await generateProblems(typeKey, recent)
     const insert = db.prepare('INSERT INTO problems (type_key, data, created_at, generator_version) VALUES (?, ?, ?, ?)')
     const now = Date.now()
