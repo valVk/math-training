@@ -48,6 +48,17 @@ describe('findProblemDefect', () => {
     expect(findProblemDefect(muddled)).toMatch(/corrects itself/)
   })
 
+  it('rejects a class letter without quotes', () => {
+    const bare = problem([{ expression: '47 - 19', value: 28 }])
+    bare.text = {
+      bg: 'Класът на Елена бил на екскурзия. В автобуса се качили ученици от 3 а клас, а на спирката се качили още 19 ученици.',
+      ru: 'Класс Елены был на экскурсии.'
+    }
+    expect(findProblemDefect(bare)).toMatch(/class letter/)
+    bare.text.bg = bare.text.bg.replace('3 а клас', '3 „А“ клас')
+    expect(findProblemDefect(bare)).toBeNull()
+  })
+
   it('requires 1 to 3 answers', () => {
     expect(findProblemDefect(problem([]))).toMatch(/1-3 answers/)
   })

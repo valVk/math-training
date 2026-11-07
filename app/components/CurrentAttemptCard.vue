@@ -1,37 +1,16 @@
 <script setup lang="ts">
 import type { CurrentAttempt } from '#shared/types'
 
-/** How often the card re-reads the child's open attempt while the page is visible. */
-const POLL_MS = 10000
-
 const { t, pick } = useLocale(PARENT_LOCALE)
 const { data, refresh } = await useFetch<{ attempt: CurrentAttempt | null }>('/api/admin/current')
 const attempt = computed(() => data.value?.attempt ?? null)
+usePolling(refresh)
 
 const units = computed(() => ({ seconds: t('seconds'), minutes: t('minutes') }))
 const typeTitle = (key: string) => {
   const type = findProblemType(key)
   return type ? pick(type.title) : key
 }
-
-let timer: ReturnType<typeof setInterval> | undefined
-function onVisible() {
-  if (document.visibilityState === 'visible') {
-    refresh()
-  }
-}
-onMounted(() => {
-  timer = setInterval(() => {
-    if (document.visibilityState === 'visible') {
-      refresh()
-    }
-  }, POLL_MS)
-  document.addEventListener('visibilitychange', onVisible)
-})
-onUnmounted(() => {
-  clearInterval(timer)
-  document.removeEventListener('visibilitychange', onVisible)
-})
 </script>
 
 <template>

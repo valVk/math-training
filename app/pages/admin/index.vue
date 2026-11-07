@@ -8,7 +8,8 @@ const toast = useToast()
 const days = ref(30)
 
 const query = computed(() => ({ days: days.value }))
-const { data: stats, status } = await useFetch<StatsResponse>('/api/admin/stats', { query })
+const { data: stats, status, refresh } = await useFetch<StatsResponse>('/api/admin/stats', { query })
+usePolling(refresh)
 
 const units = computed(() => ({ seconds: t('seconds'), minutes: t('minutes') }))
 const typeTitle = (key: string) => {
@@ -113,7 +114,7 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
         <UTable
           :data="rows"
           :columns="columns"
-          :loading="status === 'pending'"
+          :loading="status === 'pending' && !stats"
           :empty="t('noData')"
         >
           <template #typeKey-cell="{ row }">

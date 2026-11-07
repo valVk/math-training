@@ -36,6 +36,7 @@ The goal is reading comprehension as much as arithmetic, so problems are word pr
 Language: write natural, simple Bulgarian a 9-year-old reads easily. Provide an accurate Russian translation of every text field.
 Notation follows Bulgarian textbooks: "." for multiplication (5 . 6), ":" for division, and the Latin letter "x" for an unknown number.
 Use everyday Bulgarian contexts and names (Иван, Мария, Ники, Елена, баба, учителката...). Money is in euro and euro cents.
+A school class is written with the letter capitalised in Bulgarian quotes, e.g. 3 „А“ клас (Russian: 3 «А» класс), never "3 а клас", so the class number cannot be mistaken for a quantity.
 
 Each problem has 1 to 3 answers. When a problem has several answers, each one is its own question, asked in order, and later ones may build on earlier ones.
 Every answer is a non-negative whole number. Its "expression" must compute it exactly from the numbers in the problem; the app re-computes it and discards the problem on any mismatch.
