@@ -79,6 +79,8 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
 
 <template>
   <div class="space-y-10">
+    <CurrentAttemptCard />
+
     <section>
       <div class="flex flex-wrap items-end justify-between gap-4">
         <div>

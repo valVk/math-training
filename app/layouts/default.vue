@@ -7,12 +7,10 @@ const route = useRoute()
 const isParentArea = computed(() => route.path.startsWith('/admin') || route.path.startsWith('/parent'))
 useHead({ htmlAttrs: { lang: () => (isParentArea.value ? PARENT_LOCALE : CHILD_LOCALE) } })
 
-const links = computed(() => [
-  { to: '/', label: tChild('navPractice') },
-  ...(loggedIn.value
-    ? [{ to: '/admin', label: t('navStats') }, { to: '/admin/types', label: t('navTypes') }]
-    : [])
-])
+// Parents get their own menu and home page; practice is for the child.
+const links = computed(() => loggedIn.value
+  ? [{ to: '/admin', label: t('navStats') }, { to: '/admin/types', label: t('navTypes') }]
+  : [{ to: '/', label: tChild('navPractice') }])
 
 async function logout() {
   await clear()
@@ -25,7 +23,7 @@ async function logout() {
     <header class="border-b-4 border-double border-ink-300 bg-ink-900 text-ink-50">
       <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
         <NuxtLink
-          to="/"
+          :to="loggedIn ? '/admin' : '/'"
           class="flex items-baseline gap-3"
         >
           <span class="font-display text-2xl tracking-wide text-brass-200">{{ tChild('appName') }}</span>

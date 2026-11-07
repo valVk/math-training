@@ -11,7 +11,7 @@ export const LEARNER = 'local'
 /** Refill a type's pool in the background once a learner has this few unseen problems left. */
 const REFILL_THRESHOLD = 3
 /** Open attempts older than this are closed as abandoned instead of being resumed. */
-const RESUME_WINDOW_MS = 12 * 60 * 60 * 1000
+export const RESUME_WINDOW_MS = 12 * 60 * 60 * 1000
 /** Wrong tries on one answer before the child may reveal it. */
 export const TRIES_BEFORE_REVEAL = 3
 /** A skipped problem comes back after the child has started this many other problems. */

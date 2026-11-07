@@ -93,3 +93,25 @@ export interface AnalysisResult {
   suggestedOrder: string[]
   nextSteps: string[]
 }
+
+/** The problem the child has open right now, as the parent sees it (with the solutions). */
+export interface CurrentAttempt {
+  id: number
+  typeKey: string
+  servedAt: number
+  /** Last value the child's browser reported; it advances on each answer, hint or translation. */
+  activeMs: number
+  text: LocalizedText
+  answers: Array<{
+    question: LocalizedText
+    unit: LocalizedText
+    value: number
+    tries: number
+    wrongValues: number[]
+    solved: boolean
+    revealed: boolean
+  }>
+  hintUsed: boolean
+  translationOpened: boolean
+  isReturn: boolean
+}
