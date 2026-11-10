@@ -13,6 +13,8 @@ export const LEARNER = 'local'
 const REFILL_THRESHOLD = 3
 /** Open attempts older than this are closed as abandoned instead of being resumed. */
 export const RESUME_WINDOW_MS = 12 * 60 * 60 * 1000
+/** A partly answered problem left alone this long is closed as not solved (it comes back later). */
+export const PARTIAL_IDLE_MS = 60 * 60 * 1000
 /** Wrong tries on one answer before the child may reveal it. */
 export const TRIES_BEFORE_REVEAL = 3
 /** A skipped problem comes back after the child has started this many other problems. */
@@ -152,10 +154,8 @@ function loadProblem(problemId: number): Problem {
 
 export async function nextProblemFor(learner: string): Promise<PublicProblem> {
   const db = useDb()
-  const now = Date.now()
 
-  db.prepare(`UPDATE attempts SET status = 'abandoned' WHERE user_email = ? AND status = 'open' AND served_at < ?`)
-    .run(learner, now - RESUME_WINDOW_MS)
+  closeStaleAttempts(learner)
   const open = db.prepare(`SELECT * FROM attempts WHERE user_email = ? AND status = 'open' ORDER BY id DESC LIMIT 1`)
     .get(learner) as AttemptRow | undefined
   if (open) {
@@ -233,11 +233,35 @@ export function attemptStatus(attemptId: number, learner: string): AttemptStatus
   return row.status
 }
 
+/**
+ * Closes open attempts as abandoned (shown as "не решена"; they return like skipped ones):
+ * - any attempt served more than RESUME_WINDOW_MS ago;
+ * - a partly answered attempt with no activity for PARTIAL_IDLE_MS. Half a problem done an hour
+ *   ago is not a problem being solved, and resuming it later would distort time and results.
+ * Called before serving a problem and before showing the parent what is being solved, so it holds
+ * even when the child's tablet is switched off.
+ */
+export function closeStaleAttempts(learner: string) {
+  const db = useDb()
+  const now = Date.now()
+  db.prepare(`UPDATE attempts SET status = 'abandoned', finished_at = ? WHERE user_email = ? AND status = 'open' AND served_at < ?`)
+    .run(now, learner, now - RESUME_WINDOW_MS)
+  const open = db.prepare(`SELECT id, answers, COALESCE(last_activity_at, started_at, served_at) AS last_activity
+    FROM attempts WHERE user_email = ? AND status = 'open'`).all(learner) as Array<{ id: number, answers: string, last_activity: number }>
+  for (const row of open) {
+    const progress = JSON.parse(row.answers) as AnswerProgress[]
+    const partly = progress.some(item => item.solvedAtMs !== null || item.revealed)
+    if (partly && row.last_activity < now - PARTIAL_IDLE_MS) {
+      db.prepare(`UPDATE attempts SET status = 'abandoned', finished_at = ? WHERE id = ?`).run(now, row.id)
+    }
+  }
+}
+
 function saveProgress(row: AttemptRow, progress: AnswerProgress[], activeMs: number) {
   const done = progress.every(item => item.solvedAtMs !== null || item.revealed)
   const status: AttemptStatus = done ? (progress.some(item => item.revealed) ? 'revealed' : 'solved') : 'open'
-  useDb().prepare('UPDATE attempts SET answers = ?, active_ms = ?, status = ?, finished_at = ? WHERE id = ?')
-    .run(JSON.stringify(progress), Math.max(row.active_ms, activeMs), status, done ? Date.now() : null, row.id)
+  useDb().prepare('UPDATE attempts SET answers = ?, active_ms = ?, status = ?, finished_at = ?, last_activity_at = ? WHERE id = ?')
+    .run(JSON.stringify(progress), Math.max(row.active_ms, activeMs), status, done ? Date.now() : null, Date.now(), row.id)
   return { finished: done, status }
 }
 
@@ -289,14 +313,15 @@ export function revealAnswer(attemptId: number, learner: string, answerIndex: nu
 export function recordEvent(attemptId: number, learner: string, type: AttemptEvent, activeMs: number) {
   const row = loadOpenAttempt(attemptId, learner)
   const column = { hint: 'hint_used', translation: 'translation_opened', teacher: 'teacher_used' }[type]
-  useDb().prepare(`UPDATE attempts SET ${column} = 1, active_ms = ? WHERE id = ?`)
-    .run(Math.max(row.active_ms, activeMs), row.id)
+  useDb().prepare(`UPDATE attempts SET ${column} = 1, active_ms = ?, last_activity_at = ? WHERE id = ?`)
+    .run(Math.max(row.active_ms, activeMs), Date.now(), row.id)
 }
 
 /** The child opened the problem; only the first opening counts as the start. */
 export function startProblem(attemptId: number, learner: string) {
   const row = loadOpenAttempt(attemptId, learner)
-  useDb().prepare('UPDATE attempts SET started_at = COALESCE(started_at, ?) WHERE id = ?').run(Date.now(), row.id)
+  const now = Date.now()
+  useDb().prepare('UPDATE attempts SET started_at = COALESCE(started_at, ?), last_activity_at = ? WHERE id = ?').run(now, now, row.id)
 }
 
 export function skipAttempt(attemptId: number, learner: string, activeMs: number) {

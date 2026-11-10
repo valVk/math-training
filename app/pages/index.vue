@@ -173,11 +173,18 @@ async function showProblem() {
   await attemptCall('start', {})
 }
 
-function hideIfIdle() {
+/**
+ * After an hour without input the problem hides. The server then closes it as not solved if it was
+ * partly answered (a new problem comes), or keeps it if nothing was answered yet (same problem,
+ * behind the button again).
+ */
+async function hideIfIdle() {
   if (shown.value && !finishedStatus.value && timer.inputIdleMs() > HIDE_AFTER_IDLE_MS) {
     timer.stop()
     shown.value = false
-    hiddenAfterBreak.value = true
+    const previous = problem.value?.attemptId
+    await loadNext()
+    hiddenAfterBreak.value = problem.value?.attemptId === previous
   }
 }
 // Also runs right when the tab becomes visible again, e.g. the tablet waking up the next morning.

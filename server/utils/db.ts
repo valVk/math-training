@@ -64,6 +64,10 @@ const MIGRATIONS: string[] = [
   // When the child first pressed "show the problem"; served_at is only when it was loaded.
   `
   ALTER TABLE attempts ADD COLUMN started_at INTEGER;
+  `,
+  // Last time the child did something on the attempt (opened it, answered, hint, translation).
+  `
+  ALTER TABLE attempts ADD COLUMN last_activity_at INTEGER;
   `
 ]
 

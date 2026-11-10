@@ -18,6 +18,7 @@ interface CurrentRow {
 /** The child's open attempt with its solutions and progress, or null when nothing is being solved. */
 export default defineEventHandler(async (event): Promise<{ attempt: CurrentAttempt | null }> => {
   await requireParent(event)
+  closeStaleAttempts(LEARNER)
   const row = useDb().prepare(`SELECT a.id, a.problem_id, a.type_key, a.served_at, a.started_at, a.active_ms, a.answers, a.hint_used,
       a.translation_opened, a.teacher_used, a.is_return, p.data
     FROM attempts a JOIN problems p ON p.id = a.problem_id
