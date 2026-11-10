@@ -13,6 +13,13 @@ const finishedStatus = ref<AttemptStatus | null>(null)
 const showTranslation = ref(false)
 const showHint = ref(false)
 const showTeacher = ref(false)
+/**
+ * Every problem first appears behind a "show the problem" button: the clock starts only when the
+ * child actually sits down to it, and a problem left untouched for an hour hides again.
+ */
+const shown = ref(false)
+const hiddenAfterBreak = ref(false)
+const HIDE_AFTER_IDLE_MS = 60 * 60 * 1000
 
 const problemType = computed(() => problem.value ? findProblemType(problem.value.typeKey) : undefined)
 const typeTitle = computed(() => problemType.value ? pick(problemType.value.title) : '')
@@ -28,7 +35,11 @@ async function loadNext() {
     showTranslation.value = next.translationOpened
     showHint.value = next.hintUsed
     showTeacher.value = false
-    timer.start(next.activeMs)
+    shown.value = false
+    hiddenAfterBreak.value = false
+    // Resumed attempts continue from the time already spent; the clock runs only once shown.
+    timer.stop()
+    timer.activeMs.value = next.activeMs
   } catch {
     failed.value = true
   } finally {
@@ -155,6 +166,23 @@ async function onParentLogin() {
   await skip()
 }
 
+async function showProblem() {
+  shown.value = true
+  hiddenAfterBreak.value = false
+  timer.start(timer.activeMs.value)
+  await attemptCall('start', {})
+}
+
+function hideIfIdle() {
+  if (shown.value && !finishedStatus.value && timer.inputIdleMs() > HIDE_AFTER_IDLE_MS) {
+    timer.stop()
+    shown.value = false
+    hiddenAfterBreak.value = true
+  }
+}
+// Also runs right when the tab becomes visible again, e.g. the tablet waking up the next morning.
+usePolling(hideIfIdle, 30_000)
+
 onMounted(loadNext)
 </script>
 
@@ -191,6 +219,26 @@ onMounted(loadNext)
         size="xl"
         :label="t('retry')"
         @click="loadNext"
+      />
+    </div>
+
+    <div
+      v-else-if="problem && !shown"
+      class="notebook rounded-lg border border-ink-200 p-10 text-center shadow-[4px_4px_0_var(--color-ink-200)] sm:p-14"
+    >
+      <p class="text-base uppercase tracking-[0.15em] text-clay-700">
+        {{ typeTitle }}
+      </p>
+      <p class="mt-4 text-2xl text-ink-800 md:text-[2rem]">
+        {{ hiddenAfterBreak ? t('hiddenAfterBreak') : t('problemReady') }}
+      </p>
+      <UButton
+        class="mt-8"
+        size="xl"
+        icon="i-lucide-book-open"
+        :label="t('showProblem')"
+        :ui="{ base: 'px-8 py-4 text-2xl', leadingIcon: 'size-7' }"
+        @click="showProblem"
       />
     </div>
 

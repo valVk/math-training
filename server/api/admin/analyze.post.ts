@@ -33,7 +33,8 @@ export default defineEventHandler(async (event): Promise<AnalysisResult> => {
   const params = { since }
 
   const rows = db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened, a.teacher_used
-    FROM attempts a WHERE a.served_at >= @since`).all(params) as StatsAttemptRow[]
+    FROM attempts a JOIN problems p ON p.id = a.problem_id
+    WHERE a.served_at >= @since AND p.retired = 0`).all(params) as StatsAttemptRow[]
   if (rows.length === 0) {
     throw createError({ statusCode: 409, statusMessage: 'No attempts to analyze yet' })
   }
@@ -48,7 +49,7 @@ export default defineEventHandler(async (event): Promise<AnalysisResult> => {
 
   const recent = (db.prepare(`SELECT a.type_key, a.status, a.active_ms, a.answers, a.hint_used, a.translation_opened, a.teacher_used, p.data
     FROM attempts a JOIN problems p ON p.id = a.problem_id
-    WHERE a.served_at >= @since AND a.status != 'open'
+    WHERE a.served_at >= @since AND a.status != 'open' AND p.retired = 0
     ORDER BY a.id DESC LIMIT 60`).all(params) as Array<StatsAttemptRow & { data: string }>)
     .map((row) => {
       const problem = JSON.parse(row.data) as Problem

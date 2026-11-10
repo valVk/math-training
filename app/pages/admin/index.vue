@@ -316,16 +316,13 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
               variant="subtle"
               :label="t('colTranslation')"
             />
-            <UBadge
-              v-if="attempt.retired"
-              color="error"
-              variant="subtle"
-              :label="t('statusRetired')"
-            />
-            <div
-              v-else
-              class="ml-auto flex items-center gap-2"
+            <span
+              v-if="attempt.earlierStatuses.length"
+              class="text-ink-500"
             >
+              {{ t('earlier') }}: {{ attempt.earlierStatuses.map(status => t(statusLabel[status as Exclude<AttemptStatus, 'open'>])).join(', ') }}
+            </span>
+            <div class="ml-auto flex items-center gap-2">
               <template v-if="confirmingRetire === attempt.problemId">
                 <span>{{ t('retireConfirm') }}</span>
                 <UButton
@@ -360,12 +357,19 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
             <li
               v-for="(answer, index) in attempt.answers"
               :key="index"
+              class="flex flex-wrap items-center gap-x-2"
             >
+              <UIcon
+                :name="answer.solved ? 'i-lucide-circle-check' : answer.revealed ? 'i-lucide-eye' : 'i-lucide-circle-dashed'"
+                class="size-4 shrink-0"
+                :class="answer.solved ? 'text-moss-600' : answer.revealed ? 'text-brass-600' : 'text-ink-400'"
+                :title="t(answer.solved ? 'currentSolved' : answer.revealed ? 'statusRevealed' : 'notAnswered')"
+              />
               <span class="text-ink-700">{{ answer.question }}</span>
-              <span class="font-mono tabular ml-2">{{ answer.value }}</span>
+              <span class="text-ink-500">{{ t('currentAnswer') }}: <span class="font-mono tabular text-ink-800">{{ answer.value }}</span></span>
               <span
                 v-if="answer.wrongValues.length"
-                class="ml-2 text-brick-700"
+                class="text-brick-700"
               >
                 ({{ t('wrongTyped') }}: <span class="font-mono tabular">{{ answer.wrongValues.join(', ') }}</span>)
               </span>

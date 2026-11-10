@@ -111,7 +111,13 @@ const typeTitle = (key: string) => {
     >
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-600">
         <span class="uppercase tracking-wider text-clay-700">{{ typeTitle(attempt.typeKey) }}</span>
-        <span>{{ t('currentStarted') }} {{ new Date(attempt.servedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }}</span>
+        <span v-if="attempt.startedAt">{{ t('currentStarted') }} {{ new Date(attempt.startedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }}</span>
+        <UBadge
+          v-else
+          color="neutral"
+          variant="subtle"
+          :label="t('notStarted')"
+        />
         <span :title="t('currentActiveNote')">
           {{ t('currentActive') }} <span class="tabular">{{ formatDuration(attempt.activeMs, units) }}</span>
         </span>

@@ -15,10 +15,16 @@ export function useActiveTimer() {
   const activeMs = ref(0)
   let lastTick = 0
   let lastActivity = 0
+  /** Last real input; unlike lastActivity, a tab becoming visible again does not count. */
+  let lastInput = 0
   let interval: ReturnType<typeof setInterval> | null = null
 
   const markActivity = () => {
     lastActivity = Date.now()
+  }
+  const markInput = () => {
+    lastInput = Date.now()
+    markActivity()
   }
 
   const tick = () => {
@@ -36,8 +42,8 @@ export function useActiveTimer() {
     stop()
     activeMs.value = initialMs
     lastTick = Date.now()
-    markActivity()
-    activityEvents.forEach(name => window.addEventListener(name, markActivity, { passive: true }))
+    markInput()
+    activityEvents.forEach(name => window.addEventListener(name, markInput, { passive: true }))
     document.addEventListener('visibilitychange', markActivity)
     interval = setInterval(tick, TICK_MS)
   }
@@ -48,7 +54,7 @@ export function useActiveTimer() {
       clearInterval(interval)
       interval = null
     }
-    activityEvents.forEach(name => window.removeEventListener(name, markActivity))
+    activityEvents.forEach(name => window.removeEventListener(name, markInput))
     document.removeEventListener('visibilitychange', markActivity)
   }
 
@@ -60,7 +66,12 @@ export function useActiveTimer() {
     return Math.round(activeMs.value)
   }
 
+  /** Time since the child last touched or typed anything while the timer ran. */
+  function inputIdleMs(): number {
+    return Date.now() - lastInput
+  }
+
   onBeforeUnmount(stop)
 
-  return { activeMs, start, stop, read }
+  return { activeMs, start, stop, read, inputIdleMs }
 }

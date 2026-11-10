@@ -73,14 +73,14 @@ export interface TypeStats {
 export interface RecentAttempt {
   id: number
   problemId: number
-  /** A parent removed the problem from rotation. */
-  retired: boolean
+  /** Outcomes of earlier attempts at the same problem, newest first; the list shows each problem once. */
+  earlierStatuses: AttemptStatus[]
   typeKey: string
   servedAt: number
   status: AttemptStatus
   activeMs: number
   text: string
-  answers: Array<{ question: string, value: number, tries: number, wrongValues: number[], revealed: boolean }>
+  answers: Array<{ question: string, value: number, tries: number, wrongValues: number[], solved: boolean, revealed: boolean }>
   hintUsed: boolean
   translationOpened: boolean
   teacherUsed: boolean
@@ -109,6 +109,8 @@ export interface CurrentAttempt {
   problemId: number
   typeKey: string
   servedAt: number
+  /** When the child pressed "show the problem"; null while it is still hidden. */
+  startedAt: number | null
   /** Last value the child's browser reported; it advances on each answer, hint or translation. */
   activeMs: number
   text: LocalizedText

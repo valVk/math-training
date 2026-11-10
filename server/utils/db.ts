@@ -60,6 +60,10 @@ const MIGRATIONS: string[] = [
   // A parent can take a broken problem out of rotation; it is kept for the stats.
   `
   ALTER TABLE problems ADD COLUMN retired INTEGER NOT NULL DEFAULT 0;
+  `,
+  // When the child first pressed "show the problem"; served_at is only when it was loaded.
+  `
+  ALTER TABLE attempts ADD COLUMN started_at INTEGER;
   `
 ]
 

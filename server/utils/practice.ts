@@ -293,6 +293,12 @@ export function recordEvent(attemptId: number, learner: string, type: AttemptEve
     .run(Math.max(row.active_ms, activeMs), row.id)
 }
 
+/** The child opened the problem; only the first opening counts as the start. */
+export function startProblem(attemptId: number, learner: string) {
+  const row = loadOpenAttempt(attemptId, learner)
+  useDb().prepare('UPDATE attempts SET started_at = COALESCE(started_at, ?) WHERE id = ?').run(Date.now(), row.id)
+}
+
 export function skipAttempt(attemptId: number, learner: string, activeMs: number) {
   const row = loadOpenAttempt(attemptId, learner)
   useDb().prepare(`UPDATE attempts SET status = 'skipped', active_ms = ?, finished_at = ? WHERE id = ?`)

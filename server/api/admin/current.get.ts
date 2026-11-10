@@ -5,6 +5,7 @@ interface CurrentRow {
   problem_id: number
   type_key: string
   served_at: number
+  started_at: number | null
   active_ms: number
   answers: string
   hint_used: number
@@ -17,7 +18,7 @@ interface CurrentRow {
 /** The child's open attempt with its solutions and progress, or null when nothing is being solved. */
 export default defineEventHandler(async (event): Promise<{ attempt: CurrentAttempt | null }> => {
   await requireParent(event)
-  const row = useDb().prepare(`SELECT a.id, a.problem_id, a.type_key, a.served_at, a.active_ms, a.answers, a.hint_used,
+  const row = useDb().prepare(`SELECT a.id, a.problem_id, a.type_key, a.served_at, a.started_at, a.active_ms, a.answers, a.hint_used,
       a.translation_opened, a.teacher_used, a.is_return, p.data
     FROM attempts a JOIN problems p ON p.id = a.problem_id
     WHERE a.user_email = ? AND a.status = 'open' AND a.served_at >= ?
@@ -35,6 +36,7 @@ export default defineEventHandler(async (event): Promise<{ attempt: CurrentAttem
       problemId: row.problem_id,
       typeKey: row.type_key,
       servedAt: row.served_at,
+      startedAt: row.started_at,
       activeMs: row.active_ms,
       text: problem.text,
       answers: problem.answers.map((answer, index) => ({
