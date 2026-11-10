@@ -56,6 +56,10 @@ const MIGRATIONS: string[] = [
   `,
   `
   ALTER TABLE attempts ADD COLUMN teacher_used INTEGER NOT NULL DEFAULT 0;
+  `,
+  // A parent can take a broken problem out of rotation; it is kept for the stats.
+  `
+  ALTER TABLE problems ADD COLUMN retired INTEGER NOT NULL DEFAULT 0;
   `
 ]
 

@@ -96,13 +96,28 @@ async function applySuggestedOrder() {
   toast.add({ title: t('orderApplied'), color: 'success' })
 }
 
+/** Problem id waiting for the second click on "retire" in the recent list. */
+const confirmingRetire = ref<number | null>(null)
+
+async function retire(problemId: number) {
+  try {
+    await $fetch(`/api/admin/problems/${problemId}/retire`, { method: 'POST' })
+    toast.add({ title: t('retired'), color: 'success' })
+  } catch (error) {
+    toast.add({ title: (error as { statusMessage?: string }).statusMessage ?? String(error), color: 'error' })
+  } finally {
+    confirmingRetire.value = null
+    await refresh()
+  }
+}
+
 const verdictColor = { easy: 'success', ok: 'neutral', hard: 'error' } as const
 const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard' } as const
 </script>
 
 <template>
   <div class="space-y-10">
-    <CurrentAttemptCard @skipped="refresh" />
+    <CurrentAttemptCard @changed="refresh" />
 
     <section>
       <div class="flex flex-wrap items-end justify-between gap-4">
@@ -301,6 +316,42 @@ const verdictLabel = { easy: 'verdictEasy', ok: 'verdictOk', hard: 'verdictHard'
               variant="subtle"
               :label="t('colTranslation')"
             />
+            <UBadge
+              v-if="attempt.retired"
+              color="error"
+              variant="subtle"
+              :label="t('statusRetired')"
+            />
+            <div
+              v-else
+              class="ml-auto flex items-center gap-2"
+            >
+              <template v-if="confirmingRetire === attempt.problemId">
+                <span>{{ t('retireConfirm') }}</span>
+                <UButton
+                  size="xs"
+                  color="error"
+                  :label="t('retireYes')"
+                  @click="retire(attempt.problemId)"
+                />
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :label="t('reset')"
+                  @click="confirmingRetire = null"
+                />
+              </template>
+              <UButton
+                v-else
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-trash-2"
+                :label="t('retire')"
+                @click="confirmingRetire = attempt.problemId"
+              />
+            </div>
           </div>
           <p class="mt-2">
             {{ attempt.text }}

@@ -43,6 +43,9 @@ Every answer is a non-negative whole number. Its "expression" must compute it ex
 Vary numbers, contexts and wording; never repeat the examples you are shown.
 
 Every text is final, printed-workbook copy. Never think aloud or correct yourself inside a text: no "всъщност", no "...", no changed plans, no events that are taken back.
+Each problem is one self-contained situation about the same characters; never put sentences from different problems into one text.
+All numbers in a story must agree with each other: if a whole and its parts are given, the parts add up to the whole; never state a fact that the answer then contradicts (e.g. 420 spectators of whom 180 women and 330 men). Give only the numbers the situation needs, plus at most one clearly unrelated extra.
+A comparison refers to a quantity in the same story ("с 90 по-малко от жените"), never to the total it is part of.
 A problem must have exactly one reading. Do not mention an action that changes a quantity (ate, sold, dug up, gave away half) unless the questions take it into account; an extra unneeded number must clearly be about something the questions do not ask. Before you output a problem, re-read it as the child would: using only the text, they must reach exactly the stated answers.`
 
 const STYLE_RULES: Record<ProblemStyle, string> = {
@@ -63,7 +66,59 @@ const OPERAND_RULE = `Multiplication and division: a 3rd grader only multiplies 
 
 const MULTI_DIGIT_RULE = `Multiplication and division: this topic is about multiplying two numbers greater than 10 or dividing by a two-digit number; every problem needs at least one such step. Every division is exact.`
 
-/** Asks Claude for a batch of problems of one type and keeps only those that pass validation. */
+const reviewSchema = z.object({
+  reviews: z.array(z.object({
+    index: z.number().int().describe('The problem number as given, starting at 0'),
+    ok: z.boolean(),
+    reason: z.string().describe('Short reason when not ok, empty otherwise')
+  }))
+})
+
+const REVIEW_PROMPT = `You are a 3rd grade teacher at a Bulgarian school checking word problems before a 9-year-old sees them. The arithmetic of each answer has already been verified by a program; you check everything a program cannot.
+
+Reject a problem (ok: false) when any of these is true:
+- The text is not one coherent situation: sentences from different stories, a sentence that has nothing to do with the questions, a story that changes its mind or contradicts itself.
+- The numbers contradict each other: compute every quantity the story implies and check that it is consistent (parts that do not add up to the stated whole, a group described as smaller than a total it should be part of, a stated total that differs from the sum of its parts).
+- A question cannot be answered from the text alone, or a careful child could reasonably arrive at a different answer than the stated one (ambiguous wording, an action that seems to change a quantity but is ignored, missing information).
+- The stated expression does not match what the story describes (e.g. the story shares among 4 but the expression multiplies by 4).
+- The Bulgarian is unnatural or wrong for a 9-year-old, or the Russian translation says something different.
+- The problem does not fit the stated topic.
+Accept (ok: true) everything else; do not reject for style preferences. Review every problem.`
+
+/**
+ * A second, independent read of the batch. The validator checks numbers only; this catches
+ * problems that compute correctly but make no sense as a story (e.g. two stories glued together).
+ */
+async function reviewProblems(topic: string, problems: Problem[]): Promise<Problem[]> {
+  if (problems.length === 0) {
+    return problems
+  }
+  const listing = problems.map((problem, index) => JSON.stringify({
+    index,
+    text: problem.text,
+    answers: problem.answers.map(answer => ({ question: answer.question, unit: answer.unit, expression: answer.expression, value: answer.value }))
+  })).join('\n')
+  const { reviews } = await askClaudeStructured({
+    system: REVIEW_PROMPT,
+    schema: reviewSchema,
+    prompt: `Topic: ${topic}\n\nProblems, one JSON object per line:\n${listing}`
+  })
+  const verdicts = new Map(reviews.map(review => [review.index, review]))
+  return problems.filter((problem, index) => {
+    const review = verdicts.get(index)
+    // A problem the reviewer skipped is not trusted.
+    if (!review?.ok) {
+      console.warn(`[generator] review rejected a problem: ${review?.reason || 'not reviewed'} | ${problem.text.bg}`)
+      return false
+    }
+    return true
+  })
+}
+
+/**
+ * Asks Claude for a batch of problems of one type and keeps only those that pass validation and
+ * the review.
+ */
 export async function generateProblems(typeKey: string, recentTexts: string[]): Promise<Problem[]> {
   const type = findProblemType(typeKey)
   if (!type) {
@@ -99,5 +154,5 @@ Write ${BATCH_SIZE} problems on this topic, ranging from easy to moderately chal
       valid.push(problem)
     }
   }
-  return valid
+  return reviewProblems(`${type.title.bg} (${type.title.ru}): ${type.brief}`, valid)
 }

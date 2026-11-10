@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CurrentAttempt } from '#shared/types'
 
-const emit = defineEmits<{ skipped: [] }>()
+const emit = defineEmits<{ changed: [] }>()
 
 const { t, pick } = useLocale(PARENT_LOCALE)
 const toast = useToast()
@@ -9,25 +9,36 @@ const { data, refresh } = await useFetch<{ attempt: CurrentAttempt | null }>('/a
 const attempt = computed(() => data.value?.attempt ?? null)
 usePolling(refresh)
 
-/** Skipping asks for a second click, so a stray tap does not take the problem away from the child. */
-const confirmingSkip = ref(false)
-const skipping = ref(false)
-watch(() => attempt.value?.id, () => (confirmingSkip.value = false))
+/**
+ * Skip (the problem comes back later) or retire (a broken problem, never shown again). Both ask for
+ * a second click, so a stray tap does not take the problem away from the child.
+ */
+type Action = 'skip' | 'retire'
+const confirming = ref<Action | null>(null)
+const busy = ref(false)
+watch(() => attempt.value?.id, () => (confirming.value = null))
 
-async function skip() {
+const confirmText = { skip: 'currentSkipConfirm', retire: 'retireConfirm' } as const
+const confirmLabel = { skip: 'currentSkipYes', retire: 'retireYes' } as const
+
+async function run(action: Action) {
   if (!attempt.value) {
     return
   }
-  skipping.value = true
+  busy.value = true
   try {
-    await $fetch(`/api/attempts/${attempt.value.id}/skip`, { method: 'POST', body: { activeMs: attempt.value.activeMs } })
-    toast.add({ title: t('currentSkipped'), color: 'success' })
-    emit('skipped')
+    if (action === 'skip') {
+      await $fetch(`/api/attempts/${attempt.value.id}/skip`, { method: 'POST', body: { activeMs: attempt.value.activeMs } })
+    } else {
+      await $fetch(`/api/admin/problems/${attempt.value.problemId}/retire`, { method: 'POST' })
+    }
+    toast.add({ title: t(action === 'skip' ? 'currentSkipped' : 'retired'), color: 'success' })
+    emit('changed')
   } catch (error) {
     toast.add({ title: (error as { statusMessage?: string }).statusMessage ?? String(error), color: 'error' })
   } finally {
-    skipping.value = false
-    confirmingSkip.value = false
+    busy.value = false
+    confirming.value = null
     await refresh()
   }
 }
@@ -53,29 +64,37 @@ const typeTitle = (key: string) => {
         v-if="attempt"
         class="flex flex-wrap items-center gap-2"
       >
-        <template v-if="confirmingSkip">
-          <span class="text-sm text-ink-700">{{ t('currentSkipConfirm') }}</span>
+        <template v-if="confirming">
+          <span class="text-sm text-ink-700">{{ t(confirmText[confirming]) }}</span>
           <UButton
             color="error"
-            :loading="skipping"
-            :label="t('currentSkipYes')"
-            @click="skip"
+            :loading="busy"
+            :label="t(confirmLabel[confirming])"
+            @click="run(confirming)"
           />
           <UButton
             color="neutral"
             variant="ghost"
             :label="t('reset')"
-            @click="confirmingSkip = false"
+            @click="confirming = null"
           />
         </template>
-        <UButton
-          v-else
-          color="neutral"
-          variant="outline"
-          icon="i-lucide-skip-forward"
-          :label="t('currentSkip')"
-          @click="confirmingSkip = true"
-        />
+        <template v-else>
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-skip-forward"
+            :label="t('currentSkip')"
+            @click="confirming = 'skip'"
+          />
+          <UButton
+            color="error"
+            variant="outline"
+            icon="i-lucide-trash-2"
+            :label="t('retire')"
+            @click="confirming = 'retire'"
+          />
+        </template>
       </div>
     </div>
 

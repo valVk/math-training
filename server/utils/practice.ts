@@ -56,7 +56,7 @@ function isServable(typeKey: string, data: string): boolean {
 function unseenProblems(typeKey: string, learner: string): Array<{ id: number, data: string }> {
   const rows = useDb().prepare(`
     SELECT p.id, p.data FROM problems p
-    WHERE p.type_key = ? AND p.generator_version = ? AND NOT EXISTS (
+    WHERE p.type_key = ? AND p.generator_version = ? AND p.retired = 0 AND NOT EXISTS (
       SELECT 1 FROM attempts a WHERE a.problem_id = p.id AND a.user_email = ?
     )`).all(typeKey, GENERATOR_VERSION, learner) as Array<{ id: number, data: string }>
   return rows.filter(row => isServable(typeKey, row.data))
@@ -82,6 +82,7 @@ const PENDING_RETURNS_SQL = `
   WHERE a.user_email = @learner
     AND a.status IN ('skipped', 'abandoned')
     AND p.generator_version = @version
+    AND p.retired = 0
     AND a.id = (SELECT MAX(b.id) FROM attempts b WHERE b.problem_id = a.problem_id AND b.user_email = a.user_email)`
 
 export function countPendingReturns(learner: string): number {
@@ -296,4 +297,19 @@ export function skipAttempt(attemptId: number, learner: string, activeMs: number
   const row = loadOpenAttempt(attemptId, learner)
   useDb().prepare(`UPDATE attempts SET status = 'skipped', active_ms = ?, finished_at = ? WHERE id = ?`)
     .run(Math.max(row.active_ms, activeMs), Date.now(), row.id)
+}
+
+/**
+ * Takes a broken problem out of rotation for good: it is never served again, not even as a
+ * returning skipped problem. If the child has it open, the attempt is closed as skipped so the
+ * child's page moves on.
+ */
+export function retireProblem(problemId: number, learner: string) {
+  const db = useDb()
+  const result = db.prepare('UPDATE problems SET retired = 1 WHERE id = ?').run(problemId)
+  if (result.changes === 0) {
+    throw createError({ statusCode: 404, statusMessage: 'Problem not found' })
+  }
+  db.prepare(`UPDATE attempts SET status = 'skipped', finished_at = ? WHERE problem_id = ? AND user_email = ? AND status = 'open'`)
+    .run(Date.now(), problemId, learner)
 }

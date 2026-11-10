@@ -104,6 +104,11 @@ const messages = {
     currentSkipConfirm: 'Детето ще получи следващата задача, а тази ще се върне по-късно.',
     currentSkipYes: 'Пропусни',
     currentSkipped: 'Задачата е пропусната.',
+    retire: 'Премахни задачата',
+    retireConfirm: 'Задачата е сбъркана и няма да се показва повече, дори като пропусната.',
+    retireYes: 'Премахни',
+    retired: 'Задачата е премахната.',
+    statusRetired: 'премахната',
     seconds: 'с',
     minutes: 'мин'
   },
@@ -210,6 +215,11 @@ const messages = {
     currentSkipConfirm: 'Ребёнок получит следующую задачу, а эта вернётся позже.',
     currentSkipYes: 'Пропустить',
     currentSkipped: 'Задача пропущена.',
+    retire: 'Убрать задачу',
+    retireConfirm: 'Задача с ошибкой больше не будет показываться, даже как пропущенная.',
+    retireYes: 'Убрать',
+    retired: 'Задача убрана.',
+    statusRetired: 'убрана',
     seconds: 'с',
     minutes: 'мин'
   }

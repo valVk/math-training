@@ -72,6 +72,9 @@ export interface TypeStats {
 
 export interface RecentAttempt {
   id: number
+  problemId: number
+  /** A parent removed the problem from rotation. */
+  retired: boolean
   typeKey: string
   servedAt: number
   status: AttemptStatus
@@ -103,6 +106,7 @@ export interface AnalysisResult {
 /** The problem the child has open right now, as the parent sees it (with the solutions). */
 export interface CurrentAttempt {
   id: number
+  problemId: number
   typeKey: string
   servedAt: number
   /** Last value the child's browser reported; it advances on each answer, hint or translation. */
