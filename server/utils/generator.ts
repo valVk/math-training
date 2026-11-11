@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { Problem } from '#shared/types'
-import { findProblemType, type ProblemStyle } from '#shared/utils/problemTypes'
+import { findProblemType, operationLevelsFor, type OperationLevel, type OperationLevels, type ProblemStyle, type ProblemTypeDef } from '#shared/utils/problemTypes'
 import { findProblemDefect } from '#shared/utils/problemValidation'
 
 const BATCH_SIZE = 8
@@ -62,9 +62,47 @@ const STYLE_RULES: Record<ProblemStyle, string> = {
 - The unit field is empty unless the equation uses units; the hint reminds how to find the unknown addend, minuend or subtrahend.`
 }
 
-const OPERAND_RULE = `Multiplication and division: a 3rd grader only multiplies or divides by a one-digit number or by 10. In every problem one factor of each multiplication is at most 10, every divisor is at most 10, and every division is exact. This applies to the story itself too: never share 200 sheets among 25 children or buy 12 packs of 15. The app re-checks the expression and discards violations.`
+/** What the child may multiply in this request, from the topic and the parent's toggles. */
+const MULTIPLICATION_RULES: Record<OperationLevel, string> = {
+  none: `Multiplication: none. No step of the solution may multiply, including repeated equal groups, "N пъти повече" or "по N евро всяка".`,
+  table: `Multiplication: only facts from the multiplication table, both factors at most 10 (e.g. 7 . 8), in the expression and in the story itself.`,
+  beyond: `Multiplication: one factor of each multiplication is at most 10 (e.g. 124 . 3), in the expression and in the story itself; never multiply two numbers greater than 10 (never buy 12 packs of 15).`,
+  multiDigit: `Multiplication: also two numbers greater than 10 (e.g. 12 . 15), results up to 1000.`
+}
 
-const MULTI_DIGIT_RULE = `Multiplication and division: this topic is about multiplying two numbers greater than 10 or dividing by a two-digit number; every problem needs at least one such step. Every division is exact.`
+/** What the child may divide in this request, from the topic and the parent's toggles. */
+const DIVISION_RULES: Record<OperationLevel, string> = {
+  none: `Division: none. No step of the solution may divide, including working backwards from a multiplication (never "thought of a number, multiplied it by 5 and got 250"), sharing, halves or "N пъти по-малко".`,
+  table: `Division: only facts from the division table, divisor at most 10 and result at most 10 (e.g. 56 : 8), including when working backwards from a multiplication. Every division is exact.`,
+  beyond: `Division: only by a one-digit number or by 10, dividend up to 1000 (e.g. 96 : 4, 250 : 5), including when working backwards from a multiplication. Never divide by a two-digit number (never share 200 sheets among 25 children). Every division is exact.`,
+  multiDigit: `Division: by one-digit or two-digit numbers, dividend up to 1000. Every division is exact.`
+}
+
+const MULTI_DIGIT_FOCUS = `This topic is about multiplying two numbers greater than 10 or dividing by a two-digit number; every problem needs at least one such step.`
+
+/**
+ * What the child knows, from the parent's toggles: enabled topics are being practised, disabled
+ * ones may not have been learned yet. Used by both the generator and the review.
+ */
+function skillsContext(currentKey: string): string {
+  const settings = loadTypeSettings().filter(setting => setting.key !== currentKey)
+  const titles = (enabled: boolean) => settings
+    .filter(setting => setting.enabled === enabled)
+    .map(setting => findProblemType(setting.key)!.title)
+    .map(title => `${title.bg} (${title.ru})`)
+  const off = titles(false)
+  return `The parent chooses which topics the child practises; that also tells what the child already knows.
+Other topics switched on (the child knows them): ${titles(true).join('; ') || 'none'}.
+Topics switched off (the child may not have learned them yet): ${off.join('; ') || 'none'}.
+A problem may only require skills of this topic and of the topics switched on. Never require a skill that belongs to a topic switched off, not even as a small step (e.g. no Roman numerals, unit conversions, money with cents, "N пъти повече", parts of a number or equations when those topics are off).`
+}
+
+function operationRules(type: ProblemTypeDef, levels: OperationLevels): string {
+  const focus = type.teaches?.multiplication === 'multiDigit' ? `${MULTI_DIGIT_FOCUS}\n` : ''
+  return `${focus}${MULTIPLICATION_RULES[levels.multiplication]}
+${DIVISION_RULES[levels.division]}
+The app re-checks every expression and discards problems that break these limits.`
+}
 
 const reviewSchema = z.object({
   reviews: z.array(z.object({
@@ -83,13 +121,14 @@ Reject a problem (ok: false) when any of these is true:
 - The stated expression does not match what the story describes (e.g. the story shares among 4 but the expression multiplies by 4).
 - The Bulgarian is unnatural or wrong for a 9-year-old, or the Russian translation says something different.
 - The problem does not fit the stated topic.
+- Solving it needs a skill from a topic the parent has switched off (listed with each request).
 Accept (ok: true) everything else; do not reject for style preferences. Review every problem.`
 
 /**
  * A second, independent read of the batch. The validator checks numbers only; this catches
  * problems that compute correctly but make no sense as a story (e.g. two stories glued together).
  */
-async function reviewProblems(topic: string, problems: Problem[]): Promise<Problem[]> {
+async function reviewProblems(topic: string, skills: string, problems: Problem[]): Promise<Problem[]> {
   if (problems.length === 0) {
     return problems
   }
@@ -101,7 +140,7 @@ async function reviewProblems(topic: string, problems: Problem[]): Promise<Probl
   const { reviews } = await askClaudeStructured({
     system: REVIEW_PROMPT,
     schema: reviewSchema,
-    prompt: `Topic: ${topic}\n\nProblems, one JSON object per line:\n${listing}`
+    prompt: `Topic: ${topic}\n\n${skills}\n\nProblems, one JSON object per line:\n${listing}`
   })
   const verdicts = new Map(reviews.map(review => [review.index, review]))
   return problems.filter((problem, index) => {
@@ -124,6 +163,8 @@ export async function generateProblems(typeKey: string, recentTexts: string[]): 
   if (!type) {
     throw new Error(`Unknown problem type: ${typeKey}`)
   }
+  const levels = operationLevelsFor(type, enabledTypeKeys())
+  const skills = skillsContext(type.key)
 
   const avoid = recentTexts.length
     ? `\n\nRecent problems of this type, do not repeat them:\n${recentTexts.map(text => `- ${text}`).join('\n')}`
@@ -137,7 +178,9 @@ ${type.brief}
 
 ${STYLE_RULES[type.style]}
 
-${type.multiDigit ? MULTI_DIGIT_RULE : OPERAND_RULE}
+${operationRules(type, levels)}
+
+${skills}
 
 Examples in the style of the class workbook (match this style and difficulty; write new problems, never copy these):
 ${type.examples.map(example => `- ${example}`).join('\n')}
@@ -147,12 +190,12 @@ Write ${BATCH_SIZE} problems on this topic, ranging from easy to moderately chal
 
   const valid: Problem[] = []
   for (const problem of result.problems) {
-    const defect = findProblemDefect(problem, type.style, { multiDigit: type.multiDigit })
+    const defect = findProblemDefect(problem, type.style, levels)
     if (defect) {
       console.warn(`[generator] discarded ${typeKey} problem: ${defect}`)
     } else {
       valid.push(problem)
     }
   }
-  return reviewProblems(`${type.title.bg} (${type.title.ru}): ${type.brief}`, valid)
+  return reviewProblems(`${type.title.bg} (${type.title.ru}): ${type.brief}`, skills, valid)
 }

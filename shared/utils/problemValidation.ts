@@ -1,6 +1,6 @@
 import type { Problem } from '../types'
 import { evaluateExpression } from './expression'
-import type { ProblemStyle } from './problemTypes'
+import type { OperationLevels, ProblemStyle } from './problemTypes'
 
 const MAX_ANSWER = 100000
 /** Below this many words the text is a bare computation, not something to read and understand. */
@@ -9,17 +9,18 @@ const MIN_WORDS: Record<ProblemStyle, number> = { story: 12, riddle: 8, equation
 const SELF_CORRECTION = /\.\.\.|…|всъщност/i
 /** A class name with a bare letter ("3 а клас") reads like a quantity; it must be written 3 „А“ клас. */
 const BARE_CLASS_LETTER = /\d\s*[а-я]\s+клас/i
-/** 3rd grade multiplies and divides by a one-digit number or by 10. */
+/** The one-digit-or-10 limit of the multiplication table and of "by a one-digit number". */
 const MAX_SMALL_OPERAND = 10
 
-export interface DefectOptions {
-  /** The topic is about multiplying and dividing by numbers greater than 10. */
-  multiDigit?: boolean
-}
+/**
+ * How much multiplication and division a problem may use (see `OperationLevel`). Missing levels
+ * default to "by a one-digit number or 10".
+ */
+export type DefectOptions = Partial<OperationLevels>
 
 /**
- * Checks every multiplication and division in an answer's expression: division must be exact and,
- * unless the topic allows bigger operands, one factor and the divisor must be at most 10.
+ * Checks every multiplication and division in an answer's expression against the allowed levels.
+ * Division must also be exact.
  */
 function findOperationDefect(expression: string, options: DefectOptions): string | null {
   let defect: string | null = null
@@ -27,12 +28,23 @@ function findOperationDefect(expression: string, options: DefectOptions): string
     if (defect) {
       return
     }
+    const name = op === '*' ? 'multiplication' : 'division'
+    const level = options[name] ?? 'beyond'
+    const shown = `${left} ${op === '*' ? '.' : ':'} ${right}`
     if (op === '/' && !Number.isInteger(left / right)) {
-      defect = `${left} : ${right} is not exact`
-    } else if (!options.multiDigit && op === '/' && right > MAX_SMALL_OPERAND) {
-      defect = `divides by ${right}, more than 3rd grade covers`
-    } else if (!options.multiDigit && op === '*' && Math.min(left, right) > MAX_SMALL_OPERAND) {
-      defect = `multiplies ${left} . ${right}, more than 3rd grade covers`
+      defect = `${shown} is not exact`
+      return
+    }
+    // The small side is the factor or divisor the child works with, the large side the other factor
+    // or the quotient: the table limits both, "beyond" only the small side.
+    const small = op === '*' ? Math.min(left, right) : right
+    const large = op === '*' ? Math.max(left, right) : left / right
+    if (level === 'none') {
+      defect = `${shown}: no ${name} topic is enabled`
+    } else if (level === 'table' && (small > MAX_SMALL_OPERAND || large > MAX_SMALL_OPERAND)) {
+      defect = `${shown} is beyond the ${name} table`
+    } else if (level === 'beyond' && small > MAX_SMALL_OPERAND) {
+      defect = `${shown} needs ${name} by a two-digit number`
     }
   })
   return defect

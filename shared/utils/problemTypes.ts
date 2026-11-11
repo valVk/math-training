@@ -8,6 +8,25 @@ import type { LocalizedText } from '../types'
  */
 export type ProblemStyle = 'story' | 'riddle' | 'equation'
 
+/**
+ * How much multiplication or division a problem may use, from least to most:
+ * - none: not at all;
+ * - table: table facts only (7 . 8, 56 : 8): factors, divisor and quotient at most 10;
+ * - beyond: by a one-digit number or 10, up to 1000 (124 . 3, 250 : 5);
+ * - multiDigit: also by a two-digit number (12 . 15, 200 : 25).
+ * Division is always exact.
+ */
+export type OperationLevel = 'none' | 'table' | 'beyond' | 'multiDigit'
+
+export interface OperationLevels {
+  multiplication: OperationLevel
+  division: OperationLevel
+}
+
+type Operation = keyof OperationLevels
+
+const LEVEL_ORDER: OperationLevel[] = ['none', 'table', 'beyond', 'multiDigit']
+
 export interface ProblemTypeDef {
   key: string
   title: LocalizedText
@@ -25,10 +44,15 @@ export interface ProblemTypeDef {
    */
   theory: LocalizedText
   /**
-   * Allows multiplying or dividing by a number greater than 10. Every other topic stays within
-   * what 3rd grade covers: one factor at most 10, the divisor at most 10.
+   * Set on the multiplication and division topics: the level the topic teaches for that operation,
+   * and the only level it uses. Enabling such a topic also lets every other topic use that level.
    */
-  multiDigit?: boolean
+  teaches?: Partial<OperationLevels>
+  /**
+   * The minimum a topic cannot do without (a part of a number always divides), kept even when the
+   * topics that teach the operation are switched off.
+   */
+  needs?: Partial<OperationLevels>
 }
 
 /** Topics of the Bulgarian 3rd grade math curriculum. Array order is the default priority. */
@@ -94,21 +118,22 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'number_riddles',
     title: { bg: 'Намислено число', ru: 'Задуманное число' },
     style: 'riddle',
-    brief: 'Number riddles told in words: a child describes a secret number, someone thinks of a number and does something with it, or a statement uses the terms сбор, събираемо, разлика, умаляемо, умалител, произведение, частно, "непосредствено преди/след", "с N по-голямо", "N пъти по-малко".',
+    brief: 'Number riddles told in words: a child describes a secret number, someone thinks of a number and does something with it, or a statement uses the terms сбор, събираемо, разлика, умаляемо, умалител, произведение, "непосредствено преди/след", "с N по-голямо", "N пъти по-голямо". Whether working backwards may need division is stated separately for each request.',
     examples: [
       'Ани казва: Моето число е 3 пъти по-голямо от разликата на числата 47 и 39. Въпрос: Кое е числото на Ани?',
       'Петър намислил едно число. Прибавил към него 315 и получил числото, което е непосредствено преди 900. Въпрос: Кое число е намислил Петър?',
       'Разликата на две числа е 145. Умалителят е 312. Въпрос: Колко е умаляемото?'
     ],
     theory: {
-      bg: 'Превърни думите в смятане стъпка по стъпка.\n„Сбор“ е събиране, „разлика“ е изваждане, „произведение“ е умножение, „частно“ е деление.\n„Непосредствено преди 50“ е 49, „непосредствено след 50“ е 51.\nАко някой е намислил число и е направил нещо с него, върни се назад с обратното действие: прибавил е 5 и е получил 12, значи числото е 12 – 5 = 7.\nУмаляемото е разликата плюс умалителя.',
-      ru: 'Переводи слова в вычисления шаг за шагом.\n«Сумма» — это сложение, «разность» — вычитание, «произведение» — умножение, «частное» — деление.\n«Непосредственно перед 50» — это 49, «сразу после 50» — 51.\nЕсли кто-то задумал число и что-то с ним сделал, вернись назад обратным действием: прибавил 5 и получил 12, значит число 12 − 5 = 7.\nУменьшаемое — это разность плюс вычитаемое.'
+      bg: 'Превърни думите в смятане стъпка по стъпка.\n„Сбор“ е събиране, „разлика“ е изваждане, „произведение“ е умножение.\n„Непосредствено преди 50“ е 49, „непосредствено след 50“ е 51.\nАко някой е намислил число и е направил нещо с него, върни се назад с обратното действие: прибавил е 5 и е получил 12, значи числото е 12 – 5 = 7.\nУмаляемото е разликата плюс умалителя.',
+      ru: 'Переводи слова в вычисления шаг за шагом.\n«Сумма» — это сложение, «разность» — вычитание, «произведение» — умножение.\n«Непосредственно перед 50» — это 49, «сразу после 50» — 51.\nЕсли кто-то задумал число и что-то с ним сделал, вернись назад обратным действием: прибавил 5 и получил 12, значит число 12 − 5 = 7.\nУменьшаемое — это разность плюс вычитаемое.'
     }
   },
   {
     key: 'times_more_less',
     title: { bg: 'Пъти повече / пъти по-малко', ru: 'В несколько раз больше / меньше' },
     style: 'story',
+    needs: { multiplication: 'table', division: 'table' },
     brief: 'Story where one quantity is "N пъти повече" or "N пъти по-малко" than another, often compared with a sum of two other quantities. Prefer 2-3 answers: the second quantity, the total, and "с колко повече".',
     examples: [
       'В конкурс за най-добра рисунка участвали 8 второкласници и 4 пъти повече третокласници. Въпроси: Колко са третокласниците? Колко общо са участниците? С колко третокласниците са повече от второкласниците?',
@@ -137,6 +162,7 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'perimeter',
     title: { bg: 'Обиколка на фигури', ru: 'Периметр фигур' },
     style: 'story',
+    needs: { multiplication: 'beyond', division: 'beyond' },
     brief: 'Story about a real place or object shaped as a triangle, square or rectangle (a fence, a park, a drawing on the asphalt, a greenhouse): find the perimeter, a side from another side ("3 пъти по-дълга", "с 24 м по-дълга"), a missing side from the perimeter, or the base of an isosceles triangle.',
     examples: [
       'За рисунка на асфалта Лея оградила място с форма на правоъгълник. Едната страна е 8 дм, а другата е 3 пъти по-дълга. Въпроси: Колко дециметра е другата страна? Колко дециметра е обиколката на огражденото място?',
@@ -178,6 +204,7 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'mult_table',
     title: { bg: 'Таблично умножение', ru: 'Табличное умножение' },
     style: 'story',
+    teaches: { multiplication: 'table' },
     brief: 'Story whose solution is a multiplication table fact up to 10 . 10 (equal groups). The text never says "multiply".',
     examples: [
       'В часа по физическо учителката разделила класа на 6 отбора. Във всеки отбор имало по 4 деца. Въпрос: Колко деца играли?'
@@ -191,6 +218,7 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'div_table',
     title: { bg: 'Таблично деление', ru: 'Табличное деление' },
     style: 'story',
+    teaches: { division: 'table' },
     brief: 'Story whose solution is a division fact inverse to the multiplication table: sharing equally or grouping. The text never says "divide".',
     examples: [
       'Учителката донесла 48 цветни молива и ги раздала по равно на 8 деца от групата по рисуване. Въпрос: По колко молива получило всяко дете?'
@@ -204,6 +232,7 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'mult_beyond_table',
     title: { bg: 'Извънтаблично умножение', ru: 'Внетабличное умножение' },
     style: 'story',
+    teaches: { multiplication: 'beyond' },
     brief: 'Story whose solution multiplies a 2- or 3-digit number by a 1-digit number (equal groups), possibly followed by an addition or subtraction. No division anywhere: no sharing, halves, "пъти по-малко" or questions answered by dividing. Results within 1000.',
     examples: [
       'В една кутия има 124 кламера. Секретарката купила 3 такива кутии за училищната канцелария. Въпрос: Колко кламера купила?',
@@ -218,6 +247,7 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'div_beyond_table',
     title: { bg: 'Извънтаблично деление', ru: 'Внетабличное деление' },
     style: 'story',
+    teaches: { division: 'beyond' },
     brief: 'Story whose solution divides a 2- or 3-digit number by a 1-digit number without remainder (sharing equally or grouping). The text never says "divide".',
     examples: [
       'В пекарната изпекли 96 кифли и ги подредили по равно в 4 тави. Въпрос: По колко кифли има във всяка тава?'
@@ -231,7 +261,7 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'mult_div_multi_digit',
     title: { bg: 'Умножение и деление с двуцифрени числа', ru: 'Умножение и деление на двузначное число' },
     style: 'story',
-    multiDigit: true,
+    teaches: { multiplication: 'multiDigit', division: 'multiDigit' },
     brief: 'Story whose solution multiplies two numbers that are both greater than 10 (e.g. 12 . 15) or divides by a 2-digit number (e.g. 200 : 25), possibly after another step. Division is exact; results within 1000.',
     examples: [
       'Учителката купила 4 кутии с цветни листа. Във всяка кутия има по 30 листа. Тя раздала листата поравно на 24 ученици. Въпрос: По колко листа получил всеки ученик?'
@@ -245,6 +275,7 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'order_of_operations',
     title: { bg: 'Числови изрази и ред на действията', ru: 'Числовые выражения и порядок действий' },
     style: 'story',
+    needs: { multiplication: 'table' },
     brief: 'Story whose solution, written as one numeric expression, needs 2-3 operations with the right order or brackets. The expression field holds that combined expression.',
     examples: [
       'Ники купил 5 тетрадки по 6 евро всяка и платил с банкнота от 50 евро. Въпрос: Колко евро ресто получил Ники?'
@@ -258,6 +289,7 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     key: 'part_of_number',
     title: { bg: 'Част от число', ru: 'Часть числа' },
     style: 'story',
+    needs: { division: 'table' },
     brief: 'Story asking for a half, a third, a quarter, a fifth or a tenth of a quantity. Results are whole numbers.',
     examples: [
       'Баба набрала 36 ябълки от градината. Една четвърт от тях били червени, а останалите – жълти. Въпроси: Колко червени ябълки набрала баба? Колко са жълтите ябълки?'
@@ -281,6 +313,29 @@ export const PROBLEM_TYPES: ProblemTypeDef[] = [
     }
   }
 ]
+
+/**
+ * What a topic may multiply and divide right now, from the parent's toggles. An operation the topic
+ * teaches stays at exactly that level; otherwise the topic gets the highest level among the enabled
+ * topics that teach the operation, but never less than it needs.
+ */
+export function operationLevelsFor(type: ProblemTypeDef, enabledKeys: ReadonlySet<string>): OperationLevels {
+  const levelOf = (operation: Operation): OperationLevel => {
+    const taught = type.teaches?.[operation]
+    if (taught) {
+      return taught
+    }
+    return PROBLEM_TYPES
+      .filter(other => enabledKeys.has(other.key))
+      .map(other => other.teaches?.[operation] ?? 'none')
+      .reduce(highestLevel, type.needs?.[operation] ?? 'none')
+  }
+  return { multiplication: levelOf('multiplication'), division: levelOf('division') }
+}
+
+function highestLevel(a: OperationLevel, b: OperationLevel): OperationLevel {
+  return LEVEL_ORDER.indexOf(a) >= LEVEL_ORDER.indexOf(b) ? a : b
+}
 
 export const PROBLEM_TYPE_KEYS = PROBLEM_TYPES.map(type => type.key)
 

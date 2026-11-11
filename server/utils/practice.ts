@@ -2,6 +2,7 @@ import type { AnswerProgress, AttemptEvent, AttemptStatus, Problem, PublicProble
 import { pickWeightedType } from '#shared/utils/weights'
 import { parseChildAnswer } from '#shared/utils/expression'
 import { findProblemDefect } from '#shared/utils/problemValidation'
+import { operationLevelsFor } from '#shared/utils/problemTypes'
 
 /**
  * The child practices without signing in (only parents sign in), so all attempts belong to one learner.
@@ -46,13 +47,19 @@ export function loadTypeSettings(): TypeSetting[] {
     .map(row => ({ key: row.type_key, position: row.position, enabled: row.enabled === 1 }))
 }
 
+export function enabledTypeKeys(): Set<string> {
+  return new Set(loadTypeSettings().filter(setting => setting.enabled).map(setting => setting.key))
+}
+
 /**
  * Stored problems are re-validated before they are served, so tightening `findProblemDefect` also
- * retires problems already in the pool without regenerating everything.
+ * retires problems already in the pool without regenerating everything. The check uses the current
+ * toggles: switching off a multiplication or division topic hides stored problems that use it,
+ * switching it back on brings them back.
  */
 function isServable(typeKey: string, data: string): boolean {
   const type = findProblemType(typeKey)
-  return !!type && findProblemDefect(JSON.parse(data) as Problem, type.style, { multiDigit: type.multiDigit }) === null
+  return !!type && findProblemDefect(JSON.parse(data) as Problem, type.style, operationLevelsFor(type, enabledTypeKeys())) === null
 }
 
 function unseenProblems(typeKey: string, learner: string): Array<{ id: number, data: string }> {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Problem } from '../shared/types'
 import { findEquationDefect, findProblemDefect } from '../shared/utils/problemValidation'
+import { findProblemType, operationLevelsFor } from '../shared/utils/problemTypes'
 
 const text = {
   bg: 'Ива набра 5 ябълки в градината на баба. Брат ѝ Боби набра 5 пъти повече ябълки от нея.',
@@ -63,17 +64,27 @@ describe('findProblemDefect', () => {
     expect(findProblemDefect(problem([{ expression: '23 * 4', value: 92 }]))).toBeNull()
     expect(findProblemDefect(problem([{ expression: '10 * 10', value: 100 }]))).toBeNull()
     expect(findProblemDefect(problem([{ expression: '96 : 4', value: 24 }]))).toBeNull()
-    expect(findProblemDefect(problem([{ expression: '5 * 40 / 25', value: 8 }]))).toMatch(/divides by 25/)
-    expect(findProblemDefect(problem([{ expression: '12 * 15', value: 180 }]))).toMatch(/multiplies 12 . 15/)
+    expect(findProblemDefect(problem([{ expression: '5 * 40 / 25', value: 8 }]))).toMatch(/division by a two-digit number/)
+    expect(findProblemDefect(problem([{ expression: '12 * 15', value: 180 }]))).toMatch(/multiplication by a two-digit number/)
   })
 
   it('allows two-digit operands only for topics about them', () => {
-    expect(findProblemDefect(problem([{ expression: '5 * 40 / 25', value: 8 }]), 'story', { multiDigit: true })).toBeNull()
-    expect(findProblemDefect(problem([{ expression: '12 * 15', value: 180 }]), 'story', { multiDigit: true })).toBeNull()
+    expect(findProblemDefect(problem([{ expression: '5 * 40 / 25', value: 8 }]), 'story', { multiplication: 'multiDigit', division: 'multiDigit' })).toBeNull()
+    expect(findProblemDefect(problem([{ expression: '12 * 15', value: 180 }]), 'story', { multiplication: 'multiDigit' })).toBeNull()
   })
 
   it('rejects inexact division even when the total is whole', () => {
     expect(findProblemDefect(problem([{ expression: '7 / 2 * 2', value: 7 }]))).toMatch(/not exact/)
+  })
+
+  it('limits division to the allowed level', () => {
+    // Петър намислил число, умножил го по 5, извадил 40 и получил 210: the way back is 250 : 5.
+    const riddle = problem([{ expression: '(210 + 40) / 5', value: 50 }])
+    expect(findProblemDefect(riddle, 'riddle', { division: 'none' })).toMatch(/no division topic is enabled/)
+    expect(findProblemDefect(riddle, 'riddle', { division: 'table' })).toMatch(/beyond the division table/)
+    expect(findProblemDefect(riddle, 'riddle', { division: 'beyond' })).toBeNull()
+    expect(findProblemDefect(problem([{ expression: '56 / 8', value: 7 }]), 'story', { division: 'table' })).toBeNull()
+    expect(findProblemDefect(problem([{ expression: '3 * (47 - 39)', value: 24 }]), 'riddle', { division: 'none' })).toBeNull()
   })
 
   it('requires 1 to 3 answers', () => {
@@ -119,5 +130,29 @@ describe('findProblemDefect by style', () => {
     riddle.text = { bg: 'Разликата на две числа е 145. Умалителят е 312.', ru: 'Разность двух чисел 145. Вычитаемое 312.' }
     expect(findProblemDefect(riddle, 'riddle')).toBeNull()
     expect(findProblemDefect(riddle, 'story')).toMatch(/story needs/)
+  })
+})
+
+describe('operationLevelsFor', () => {
+  const riddles = findProblemType('number_riddles')!
+
+  it('follows the enabled multiplication and division topics', () => {
+    expect(operationLevelsFor(riddles, new Set())).toEqual({ multiplication: 'none', division: 'none' })
+    expect(operationLevelsFor(riddles, new Set(['mult_table', 'div_table']))).toEqual({ multiplication: 'table', division: 'table' })
+    expect(operationLevelsFor(riddles, new Set(['mult_table', 'mult_beyond_table', 'div_beyond_table'])))
+      .toEqual({ multiplication: 'beyond', division: 'beyond' })
+    expect(operationLevelsFor(riddles, new Set(['mult_div_multi_digit']))).toEqual({ multiplication: 'multiDigit', division: 'multiDigit' })
+  })
+
+  it('keeps the level a topic teaches and the minimum it needs', () => {
+    const allEnabled = new Set(['mult_beyond_table', 'div_beyond_table', 'mult_div_multi_digit'])
+    expect(operationLevelsFor(findProblemType('div_table')!, allEnabled).division).toBe('table')
+    expect(operationLevelsFor(findProblemType('mult_table')!, new Set()).multiplication).toBe('table')
+    expect(operationLevelsFor(findProblemType('part_of_number')!, new Set())).toEqual({ multiplication: 'none', division: 'table' })
+  })
+
+  it('rejects multiplication when no multiplication topic is enabled', () => {
+    expect(findProblemDefect(problem([{ expression: '5 * 5', value: 25 }]), 'story', { multiplication: 'none' })).toMatch(/no multiplication topic/)
+    expect(findProblemDefect(problem([{ expression: '23 * 4', value: 92 }]), 'story', { multiplication: 'table' })).toMatch(/beyond the multiplication table/)
   })
 })
